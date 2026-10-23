@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A demo GIF in the README showing the continuation ghost and Tab acceptance.
+
 ## [1.1.2] - 2026-10-23
 
 ### Changed

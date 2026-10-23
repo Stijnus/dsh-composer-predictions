@@ -17,6 +17,8 @@ Up to three candidates are requested per call. **Alt+Down / Alt+Up** cycle them,
 **Escape** dismisses one, and typing aborts any in-flight request and hides the
 ghost.
 
+![Typing a draft, the continuation ghost appearing, and Tab accepting it](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/demo.gif)
+
 ## Install
 
 Inside the DeepSeek Harness Web GUI: **Plugins → Install**, then enter
