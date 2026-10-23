@@ -1,5 +1,9 @@
 # dsh-composer-predictions
 
+[![npm](https://img.shields.io/npm/v/dsh-composer-predictions)](https://www.npmjs.com/package/dsh-composer-predictions)
+[![license](https://img.shields.io/npm/l/dsh-composer-predictions)](LICENSE)
+[![topic](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
+
 AI ghost text for the message box in the DeepSeek Harness Web GUI.
 
 - **Next message** — after the agent replies, the empty composer shows a
@@ -136,6 +140,12 @@ Disable **Composer predictions** in **Plugins → Installed**, or remove it with
 ## Changelog
 
 See [CHANGELOG.md](https://github.com/Stijnus/dsh-composer-predictions/blob/main/CHANGELOG.md).
+
+## Contributing
+
+Issues and pull requests are welcome. If this saves you time in the composer, a
+star helps other DSH users find it — plugin catalogs index repositories by the
+`dsh-plugin` topic, and stars decide which ones get surfaced.
 
 ## License
 
