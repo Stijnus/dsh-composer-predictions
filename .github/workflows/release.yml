@@ -1,0 +1,60 @@
+name: release
+
+# Publishes a tagged commit to npm with a provenance attestation.
+#
+# Auth is npm trusted publishing (OIDC): this workflow needs no NPM_TOKEN, but
+# the package must list this repository and workflow as a trusted publisher.
+# See RELEASING.md for the one-time setup.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC: npm trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          # No registry-url on purpose: it writes an .npmrc with a
+          # ${NODE_AUTH_TOKEN} placeholder, and trusted publishing must run
+          # without a token. The default registry is registry.npmjs.org.
+
+      - name: Tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+          echo "releasing ${version}"
+
+      - name: npm supports trusted publishing
+        run: |
+          version="$(npm --version)"
+          echo "npm ${version}"
+          node -e 'const [major, minor] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && minor < 5)) {
+              console.error("npm >= 11.5.1 is required for trusted publishing");
+              process.exit(1);
+            }' "${version}"
+
+      - name: Test
+        run: npm test
+
+      - name: Publish
+        run: npm publish --provenance --access public
