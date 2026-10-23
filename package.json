@@ -45,5 +45,13 @@
         "@deepseek-ai/dsh-client-locale"
       ]
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Stijnus/dsh-composer-predictions.git"
+  },
+  "homepage": "https://github.com/Stijnus/dsh-composer-predictions#readme",
+  "bugs": {
+    "url": "https://github.com/Stijnus/dsh-composer-predictions/issues"
   }
 }
