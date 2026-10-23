@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-23
+
+### Changed
+
+- README leads with what makes this plugin different: caret continuation plus
+  keyboard-only candidate cycling, in a comparison table against the other
+  composer-prediction plugins.
+- npm description now names both modes.
+
+
 ### Added
 
 - A demo GIF in the README showing the continuation ghost and Tab acceptance.
@@ -61,7 +71,8 @@ first registry version is `1.1.0`.)
 - Requires a Harness build that provides `conversation.input.overlay`,
   `ctx.llm`, and `sessions.deriveMessages()`.
 
-[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.1.0

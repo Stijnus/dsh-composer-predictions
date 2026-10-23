@@ -19,6 +19,34 @@ ghost.
 
 ![Typing a draft, the continuation ghost appearing, and Tab accepting it](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/demo.gif)
 
+## How this differs from the other prediction plugins
+
+There are several composer-prediction plugins for DSH. Only this one does both
+halves — it suggests your next message **and** finishes the sentence you are
+already typing — and it keeps every decision on the keyboard: `Tab` accepts into
+an editable draft, `Alt+Down`/`Alt+Up` cycle candidates, and nothing is ever sent
+for you.
+
+| | this plugin | [dsh-composer-prediction](https://www.npmjs.com/package/dsh-composer-prediction) | [dsh-input-prediction](https://www.npmjs.com/package/dsh-input-prediction) | [dsh-ghost-prompt](https://www.npmjs.com/package/dsh-ghost-prompt) |
+|---|---|---|---|---|
+| Suggests the next message after a reply | ✅ | ✅ | ✅ | ✅ |
+| Completes the draft while you type, at the caret | ✅ | — | ✅ | — |
+| Several candidates per request | ✅ 3, inline | — | ✅ 1–3 chips | — |
+| Cycle candidates without leaving the keyboard | ✅ `Alt+↓` / `Alt+↑` | — | — (click a chip) | — |
+| Accepts as an editable draft, never sends | ✅ | ✅ | chips send on click | — |
+| Streamed rendering | ✅ SSE (`/v2`) | not documented | ✅ | ✅ |
+| Recent tool calls and outcomes in the prompt | ✅ | — | — | — |
+| Cache | ✅ per turn + per draft | ✅ | ✅ | not documented |
+
+"—" means the feature is not mentioned in that package's README as of
+2026-10-23, not that it is impossible. If all you want is an after-turn
+suggestion, `dsh-composer-prediction` is a perfectly good, more established
+choice — this plugin is for people who also want the caret continuation and
+keyboard-only candidate switching.
+
+Roadmap in this lane: a **Settings → General** row to switch predictions on and
+off (today you disable the bundle instead).
+
 ## Install
 
 Inside the DeepSeek Harness Web GUI: **Plugins → Install**, then enter
