@@ -1,6 +1,6 @@
 {
   "name": "dsh-composer-predictions",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "AI follow-up and inline continuation ghost text for the DeepSeek Harness composer: streamed candidates, Tab to accept, Alt+Down to cycle",
   "type": "module",
   "license": "MIT",
@@ -30,7 +30,8 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "CHANGELOG.md"
   ],
   "dsh": {
     "bundle": {
