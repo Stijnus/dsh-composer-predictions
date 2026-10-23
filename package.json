@@ -1,6 +1,6 @@
 {
   "name": "dsh-composer-predictions",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "AI follow-up and inline continuation ghost text for the DeepSeek Harness composer: streamed candidates, Tab to accept, Alt+Down to cycle",
   "type": "module",
   "license": "MIT",
