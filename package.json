@@ -1,0 +1,48 @@
+{
+  "name": "dsh-composer-predictions",
+  "version": "1.1.0",
+  "description": "AI follow-up and inline continuation ghost text for the DeepSeek Harness composer: streamed candidates, Tab to accept, Alt+Down to cycle",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "deepseek-harness",
+    "composer",
+    "autocomplete",
+    "tab-completion"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}

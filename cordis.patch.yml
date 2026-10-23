@@ -1,0 +1,18 @@
+# Composer predictions: after a turn ends the Host streams follow-up messages;
+# while you pause mid-draft it streams continuations of that draft. The Client
+# renders ghost text and accepts it on Tab (Alt+Down cycles candidates).
+- insert:
+    - id: composer-predictions
+      name: dsh-composer-predictions
+      config:
+        maxOutputTokens: 220
+        timeoutMs: 20000
+        maxMessages: 10
+        maxChars: 8000
+        maxSuggestions: 3
+        maxToolNotes: 6
+        # Optional fixed route for predictions; both or neither. Without a pair
+        # the Session's own provider/model is used at its lowest reasoning effort.
+        # provider: deepseek-account
+        # model: deepseek-flash
+        # reasoningEffort: off

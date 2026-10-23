@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Composer predictions">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#1F2937"/>
+  <path d="M18 22h20a7 7 0 0 1 7 7v13" fill="none" stroke="#E5E7EB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 16l8 6-8 6" fill="none" stroke="#E5E7EB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 36v8a4 4 0 0 1-4 4h-4" fill="none" stroke="#E5E7EB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24 30l2.6 5.4L32 38l-5.4 2.6L24 46l-2.6-5.4L16 38l5.4-2.6z" fill="#60A5FA"/>
+</svg>

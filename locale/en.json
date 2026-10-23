@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Composer predictions",
+    "description": "Streams AI follow-up messages after a reply and inline continuations while you type; press Tab to accept and Alt+Down to cycle candidates."
+  }
+}
