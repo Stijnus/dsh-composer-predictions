@@ -41,9 +41,9 @@ source checkout is picked up again when the profile recomposes.
    **Escape** dismisses, and typing hides the ghost without sending anything.
 4. Accepting never submits the message; edit it or press Enter yourself.
 
-![Next-message ghost](docs/next-message-ghost.png)
+![Next-message ghost](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/next-message-ghost.png)
 
-![Inline continuation ghost](docs/continuation-ghost.png)
+![Inline continuation ghost](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/continuation-ghost.png)
 
 ## How it works
 
@@ -132,6 +132,10 @@ internal `__testing` export.
 
 Disable **Composer predictions** in **Plugins → Installed**, or remove it with
 `dsh plugin --profile <name> remove dsh-composer-predictions`.
+
+## Changelog
+
+See [CHANGELOG.md](https://github.com/Stijnus/dsh-composer-predictions/blob/main/CHANGELOG.md).
 
 ## License
 

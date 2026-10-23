@@ -49,6 +49,6 @@ first registry version is `1.1.0`.)
 - Requires a Harness build that provides `conversation.input.overlay`,
   `ctx.llm`, and `sessions.deriveMessages()`.
 
-[Unreleased]: https://github.com/OWNER/dsh-composer-predictions/compare/v1.1.1...HEAD
-[1.1.1]: https://github.com/OWNER/dsh-composer-predictions/compare/v1.1.0...v1.1.1
-[1.1.0]: https://github.com/OWNER/dsh-composer-predictions/releases/tag/v1.1.0
+[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.1.0
