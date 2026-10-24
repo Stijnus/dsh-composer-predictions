@@ -37,6 +37,18 @@ git push origin v1.2.0
 The tag push starts the workflow: it checks that the tag matches
 `package.json`, runs `npm test`, then publishes with provenance.
 
+## Market index
+
+`market-index.json` is a DSH format-1 market index that lists this package, so a
+Discover tab can show it. Bump `plugins[0].versions[0]` (version and
+`publishTimestamp` in Unix seconds) in the same commit as a release:
+
+```bash
+npm view dsh-composer-predictions time --json   # exact publish time
+```
+
+Index URL: https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-index.json
+
 ## Verify
 
 ```bash
