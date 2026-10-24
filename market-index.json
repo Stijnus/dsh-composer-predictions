@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Composer predictions",
+    "zh": "输入预测"
+  },
+  "description": {
+    "en": "Tab-completion for the DeepSeek Harness composer: next-message ghost text plus inline continuation of your draft, with keyboard candidate cycling.",
+    "zh": "给 DeepSeek Harness 输入框加 Tab 补全：回复后建议下一句话，打字时在光标处续写草稿，支持键盘切换候选。"
+  },
+  "metadata": {
+    "categories": {
+      "ui-experience": {
+        "title": {
+          "en": "UI & Experience",
+          "zh": "界面与体验"
+        }
+      }
+    },
+    "labels": {},
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-composer-predictions",
+      "title": {
+        "en": "Composer Predictions",
+        "zh": "输入预测"
+      },
+      "description": {
+        "en": "Tab-completion for the DeepSeek Harness composer: next-message ghost text plus inline continuation of your draft, with keyboard candidate cycling.",
+        "zh": "给 DeepSeek Harness 输入框加 Tab 补全：回复后建议下一句话，打字时在光标处续写草稿，支持键盘切换候选。"
+      },
+      "author": "stijnus",
+      "homepage": "https://github.com/Stijnus/dsh-composer-predictions",
+      "repository": {
+        "url": "https://github.com/Stijnus/dsh-composer-predictions"
+      },
+      "metadata": {
+        "category": "ui-experience",
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "deepseek-harness",
+          "composer",
+          "autocomplete",
+          "tab-completion"
+        ]
+      },
+      "versions": [
+        {
+          "version": "1.1.3",
+          "publishTimestamp": 1792755179,
+          "source": {
+            "type": "npm",
+            "registry": "https://registry.npmjs.org/"
+          }
+        }
+      ]
+    }
+  ]
+}
