@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
+    const { Switch } = require('@deepseek-ai/dsh-client-ui-primitives')
 
     const NS = 'composer-predictions'
     const ENDPOINT = '/composer-prediction/v2'
@@ -49,12 +50,54 @@ window.__ModuleLoader__.load({
         label: 'Composer prediction',
         accept: 'Press Tab to accept this suggestion',
         more: 'Alt+Down for the next suggestion',
+        enabled: 'Composer predictions',
+        description: 'Suggest your next message and continue drafts. Uses your model and tokens. Saved in this browser on this device.',
+        ready: 'Suggestion: {text}. Press Tab to accept. Alt+Down or Alt+Up changes candidates. Escape dismisses.',
       },
       zh: {
         label: '输入预测',
         accept: '按 Tab 采纳该建议',
         more: '按 Alt+↓ 查看下一条建议',
+        enabled: '输入预测',
+        description: '建议下一条消息并续写草稿。会调用模型并消耗 token。设置保存在当前设备的浏览器中。',
+        ready: '建议：{text}。按 Tab 采纳，Alt+↓ 或 Alt+↑ 切换，Escape 关闭。',
       },
+    }
+
+    const PREFERENCE_KEY = 'dsh-composer-predictions.enabled'
+    let enabled = true
+    try {
+      enabled = window.localStorage.getItem(PREFERENCE_KEY) !== 'false'
+    } catch {
+      // Restricted storage keeps the preference in memory for this window.
+    }
+    const preferenceListeners = new Set()
+    const subscribePreference = (listener) => {
+      preferenceListeners.add(listener)
+      return () => preferenceListeners.delete(listener)
+    }
+    const readEnabled = () => enabled
+    function setEnabled(value) {
+      enabled = value
+      try {
+        window.localStorage.setItem(PREFERENCE_KEY, String(value))
+      } catch {
+        // The switch still works for this window when storage is unavailable.
+      }
+      for (const listener of preferenceListeners) listener()
+    }
+    function useEnabled() {
+      return React.useSyncExternalStore(subscribePreference, readEnabled, readEnabled)
+    }
+    function PredictionsSetting({ t }) {
+      const checked = useEnabled()
+      return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '16px 0', borderBottom: '0.5px solid var(--dsw-alias-border-l2)' } },
+        h('div', null,
+          h('div', { style: { fontSize: 14, lineHeight: '20px' } }, t('enabled')),
+          h('div', { style: { fontSize: 12, lineHeight: '18px', marginTop: 4, color: 'var(--dsw-alias-label-secondary)' } }, t('description')),
+        ),
+        h(Switch, { checked, label: t('enabled'), onChange: setEnabled }),
+      )
     }
 
     const NO_GHOST = { mode: 'next', items: [], index: 0, stream: '', active: false }
@@ -219,12 +262,12 @@ window.__ModuleLoader__.load({
 
     /**
      * Join a continuation onto the draft without gluing words together.
-     * The Host trims candidate whitespace, so spacing is decided here where the
-     * exact draft and caret are known.
+     * Avoid repeating a separator already present in the exact draft.
      */
     function joinContinuation(draft, value) {
       if (draft === '' || value === '') return value
-      if (/^\s/u.test(value) || /\s$/u.test(draft)) return value
+      if (/\s$/u.test(draft)) return value.replace(/^\s+/u, '')
+      if (/^\s/u.test(value)) return value
       const last = draft.slice(-1)
       const first = value.slice(0, 1)
       // CJK text does not use a word separator; never invent one there.
@@ -273,6 +316,7 @@ window.__ModuleLoader__.load({
       const reader = body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let terminal = false
       try {
         for (;;) {
           const { done, value } = await reader.read()
@@ -288,7 +332,9 @@ window.__ModuleLoader__.load({
               const payload = line.slice(5).trim()
               if (payload === '') continue
               try {
-                onEvent(JSON.parse(payload))
+                const event = JSON.parse(payload)
+                if (event.type === 'done' || event.type === 'error') terminal = true
+                onEvent(event)
               } catch {
                 // A malformed frame is ignored; the draft keeps working.
               }
@@ -296,6 +342,7 @@ window.__ModuleLoader__.load({
             boundary = buffer.indexOf('\n\n')
           }
         }
+        return terminal
       } finally {
         if (signal.aborted) {
           try {
@@ -304,11 +351,13 @@ window.__ModuleLoader__.load({
             // Cancelling a finished stream is harmless.
           }
         }
+        reader.releaseLock()
       }
     }
 
     function ComposerPrediction(props) {
       const { sessionId, useInput, useSessionStatus, inputActions, t } = props
+      const predictionsEnabled = useEnabled()
       const draft = useInput((state) => (state === undefined ? '' : state.draft || ''))
       const running = useSessionStatus((state) => (state === undefined ? false : state.get(sessionId)?.running === true))
       const [ghost, setGhost] = React.useState(NO_GHOST)
@@ -376,7 +425,7 @@ window.__ModuleLoader__.load({
               return
             }
 
-            await consumeStream(response.body, controller.signal, (event) => {
+            const terminal = await consumeStream(response.body, controller.signal, (event) => {
               if (controller.signal.aborted) return
               if (event.type === 'delta' && typeof event.text === 'string') {
                 setGhost((previous) =>
@@ -393,6 +442,7 @@ window.__ModuleLoader__.load({
                 settle([])
               }
             })
+            if (!terminal) settle([])
           } catch {
             // An aborted or failed prediction is silent: the composer keeps working.
             if (!controller.signal.aborted) settle([])
@@ -400,6 +450,13 @@ window.__ModuleLoader__.load({
         },
         [sessionId],
       )
+
+      React.useEffect(() => {
+        if (predictionsEnabled) return
+        abortRef.current?.abort()
+        setGhost(NO_GHOST)
+        setBox(null)
+      }, [predictionsEnabled])
 
       // IME composition owns the draft until it commits: no prediction work.
       React.useEffect(() => {
@@ -448,19 +505,19 @@ window.__ModuleLoader__.load({
       // `next`: ask once the turn has settled and the composer is empty.
       React.useEffect(() => {
         if (sessionId === undefined || sessionId === null) return undefined
-        if (running || draft !== '') return undefined
+        if (!predictionsEnabled || running || draft !== '') return undefined
         if (dismissedRef.current !== null && dismissedRef.current.draft === draft) return undefined
         const timer = setTimeout(() => {
           if (composingRef.current) return
           void request('next', '')
         }, SETTLE_MS)
         return () => clearTimeout(timer)
-      }, [sessionId, running, draft, request])
+      }, [sessionId, running, draft, request, predictionsEnabled])
 
       // `continue`: ask after a pause, only with the caret at the draft's end.
       React.useEffect(() => {
         if (sessionId === undefined || sessionId === null) return undefined
-        if (draft.trim() === '' || draft.length < CONTINUE_MIN_CHARS) return undefined
+        if (!predictionsEnabled || draft.trim() === '' || draft.length < CONTINUE_MIN_CHARS) return undefined
         if (isTriggerToken(draft)) return undefined
         if (dismissedRef.current !== null && dismissedRef.current.draft === draft) return undefined
         const timer = setTimeout(() => {
@@ -471,12 +528,12 @@ window.__ModuleLoader__.load({
           void request('continue', draft.slice(-MAX_DRAFT_CHARS))
         }, TYPE_PAUSE_MS)
         return () => clearTimeout(timer)
-      }, [sessionId, draft, request])
+      }, [sessionId, draft, request, predictionsEnabled])
 
       // A prediction skipped while the page was hidden is retried on return.
       React.useEffect(() => {
         const onVisibility = () => {
-          if (document.hidden) return
+          if (!predictionsEnabled || document.hidden) return
           if (draft !== '' || running) return
           if (currentRef.current !== '' || dismissedRef.current !== null) return
           if (sessionId === undefined || sessionId === null) return
@@ -484,7 +541,7 @@ window.__ModuleLoader__.load({
         }
         document.addEventListener('visibilitychange', onVisibility)
         return () => document.removeEventListener('visibilitychange', onVisibility)
-      }, [draft, running, sessionId, request])
+      }, [draft, running, sessionId, request, predictionsEnabled])
 
       const rawCandidate = ghost.items.length > 0
         ? ghost.items[Math.min(ghost.index, ghost.items.length - 1)] ?? ''
@@ -494,6 +551,7 @@ window.__ModuleLoader__.load({
       const hasCandidate = current !== ''
 
       const visible =
+        predictionsEnabled &&
         current !== '' &&
         box !== null &&
         (ghost.mode === 'next'
@@ -575,9 +633,12 @@ window.__ModuleLoader__.load({
                 ? Math.round(lineHeight)
                 : FALLBACK_LINE_HEIGHT
           const desired = caret.left - cardRect.left
-          const maxLeft = Math.max(0, cardRect.width - 160)
-          const left = Math.max(0, Math.min(desired, maxLeft))
-          const maxWidth = Math.max(80, cardRect.right - (cardRect.left + left) - 16)
+          const left = Math.max(0, desired)
+          const maxWidth = cardRect.right - (cardRect.left + left) - 16
+          if (maxWidth < 48) {
+            setBox((previous) => (previous === null ? previous : null))
+            return
+          }
           const top = caret.top - cardRect.top
           // A caret scrolled above or below the card has no honest place to draw.
           if (top < 0 || top > cardRect.height - 8) {
@@ -617,22 +678,15 @@ window.__ModuleLoader__.load({
 
       const accept = () => {
         const value = currentRef.current
-        if (value === '') return
+        if (value === '' || ghost.active) return
         const expected = ghost.mode === 'continue' ? draft + value : value
         dismissedRef.current = { draft: expected }
         abortRef.current?.abort()
-        let applied = false
         try {
-          applied = inputActions.insertText(value, inputActions.captureInsertion()) === true
+          // A refused insertion must never be bypassed by replacing the draft.
+          if (inputActions.insertText(value, inputActions.captureInsertion()) !== true) return
         } catch {
-          applied = false
-        }
-        if (!applied) {
-          try {
-            inputActions.setDraft(expected)
-          } catch {
-            // Leave the draft untouched when the composer refuses the write.
-          }
+          return
         }
         setGhost(NO_GHOST)
         setBox(null)
@@ -689,42 +743,58 @@ window.__ModuleLoader__.load({
           if (event.key !== 'Tab' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
           // Tab belongs to the editor only; on composer controls it must keep
           // its normal focus-traversal behavior.
-          if (!inEditor) return
+          if (!inEditor || ghost.active) return
+          if (ghost.mode === 'continue' && caretAtEnd(found.editor, draft) === null) return
           event.preventDefault()
           event.stopPropagation()
           acceptRef.current?.()
         }
         document.addEventListener('keydown', onKeyDown, true)
         return () => document.removeEventListener('keydown', onKeyDown, true)
-      }, [visible, draft, ghost.items.length])
+      }, [visible, draft, ghost.items.length, ghost.active, ghost.mode])
 
       if (!visible || box === null) return null
 
       const continuation = ghost.mode === 'continue'
       const style = continuation ? CONTINUE_GHOST_STYLE : NEXT_GHOST_STYLE
-      const showKeycap = !continuation || (box.maxWidth ?? 0) >= 96
+      const showKeycap = !ghost.active && (!continuation || (box.maxWidth ?? 0) >= 96)
       const showBadge = ghost.items.length > 1
 
-      return h(
-        'div',
-        {
-          style: { ...style, ...box },
-          'aria-hidden': 'true',
-          'data-composer-prediction': ghost.mode,
-          title: current,
-        },
-        h('span', { style: continuation ? CONTINUE_TEXT_STYLE : TEXT_STYLE }, current),
-        showBadge ? h('span', { style: BADGE_STYLE, title: t('more') }, `${ghost.index + 1}/${ghost.items.length}`) : null,
-        showKeycap ? h('kbd', { style: KEYCAP_STYLE, title: t('accept') }, 'Tab') : null,
+      return h(React.Fragment, null,
+        h('span', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', style: { position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap' } }, ghost.active ? '' : t('ready').replace('{text}', current)),
+        h('div',
+          {
+            style: { ...style, ...box },
+            'aria-hidden': 'true',
+            'data-composer-prediction': ghost.mode,
+            title: current,
+          },
+          h('span', { style: continuation ? CONTINUE_TEXT_STYLE : TEXT_STYLE }, current),
+          showBadge ? h('span', { style: BADGE_STYLE, title: t('more') }, `${ghost.index + 1}/${ghost.items.length}`) : null,
+          showKeycap ? h('kbd', { style: KEYCAP_STYLE, title: t('accept') }, 'Tab') : null,
+        ),
       )
     }
 
     return {
       inject: ['slots', 'locale'],
-      __testing: { joinContinuation, parseSseText, streamingCandidate, cleanLine },
+      __testing: { joinContinuation, parseSseText, streamingCandidate, cleanLine, consumeStream, setEnabled, readEnabled },
       apply(ctx) {
         const t = ctx.locale.bind(NS)
         ctx.effect(() => ctx.locale.register(NS, DICTIONARIES))
+        ctx.effect(() => {
+          const onStorage = (event) => {
+            if (event.key !== PREFERENCE_KEY && event.key !== null) return
+            enabled = event.newValue !== 'false'
+            for (const listener of preferenceListeners) listener()
+          }
+          window.addEventListener('storage', onStorage)
+          return () => window.removeEventListener('storage', onStorage)
+        })
+        ctx.slots.inject('settings.general.item', () => ctx.slots.register(
+          { name: 'settings.general.item', id: 'composer-predictions', order: 50, label: () => t('enabled') },
+          () => h(PredictionsSetting, { t }),
+        ))
         ctx.slots.inject(SLOT, () =>
           ctx.slots.register(
             {

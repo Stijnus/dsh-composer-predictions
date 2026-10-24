@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-24
+
+### Added
+
+- Settings → General switch to pause both modes, remembered on this device.
+- Accessible announcement of final candidates and keyboard controls.
+- Regression tests for real overlay behavior, split UTF-8 streams and preferences.
+
+### Fixed
+
+- Tab accepts only final, normalized candidates, avoiding duplicated draft text
+  and prompt echoes while a response is still streaming.
+- A stream without a terminal event clears the partial suggestion.
+- Continuations keep their caret position and hide when there is no room.
+- Joining a continuation no longer doubles a draft's trailing space.
+- A refused editor insertion never falls back to replacing the entire draft.
+- Comparison copy describes the actual differences between prediction plugins.
+
 ## [1.1.3] - 2026-10-23
 
 ### Changed

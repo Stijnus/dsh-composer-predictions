@@ -14,16 +14,16 @@ AI ghost text for the message box in the DeepSeek Harness Web GUI.
   completion without sending anything.
 
 Up to three candidates are requested per call. **Alt+Down / Alt+Up** cycle them,
-**Escape** dismisses one, and typing aborts any in-flight request and hides the
-ghost.
+**Escape** dismisses the suggestions, and typing aborts any in-flight request
+and hides the ghost. Streaming text is a preview: `Tab` becomes available when
+the final candidates are ready.
 
 ![Typing a draft, the continuation ghost appearing, and Tab accepting it](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/demo.gif)
 
 ## How this differs from the other prediction plugins
 
-There are several composer-prediction plugins for DSH. Only this one does both
-halves — it suggests your next message **and** finishes the sentence you are
-already typing — and it keeps every decision on the keyboard: `Tab` accepts into
+This plugin combines next-message suggestions and draft continuation with
+multiple ghost-text candidates and keyboard cycling: `Tab` accepts into
 an editable draft, `Alt+Down`/`Alt+Up` cycle candidates, and nothing is ever sent
 for you.
 
@@ -33,19 +33,20 @@ for you.
 | Completes the draft while you type, at the caret | ✅ | — | ✅ | — |
 | Several candidates per request | ✅ 3, inline | — | ✅ 1–3 chips | — |
 | Cycle candidates without leaving the keyboard | ✅ `Alt+↓` / `Alt+↑` | — | — (click a chip) | — |
-| Accepts as an editable draft, never sends | ✅ | ✅ | chips send on click | — |
+| Accepts as an editable draft, never sends | ✅ | ✅ | Tab edits the draft; recommendation chips send on click | ✅ |
 | Streamed rendering | ✅ SSE (`/v2`) | not documented | ✅ | ✅ |
 | Recent tool calls and outcomes in the prompt | ✅ | — | — | — |
 | Cache | ✅ per turn + per draft | ✅ | ✅ | not documented |
 
 "—" means the feature is not mentioned in that package's README as of
-2026-10-23, not that it is impossible. If all you want is an after-turn
+2026-10-24, not that it is impossible. If all you want is an after-turn
 suggestion, `dsh-composer-prediction` is a perfectly good, more established
 choice — this plugin is for people who also want the caret continuation and
 keyboard-only candidate switching.
 
-Roadmap in this lane: a **Settings → General** row to switch predictions on and
-off (today you disable the bundle instead).
+**Settings → General → Composer predictions** switches both modes on or off.
+The choice is saved in the current browser or desktop window's local storage
+on this device. Other browser origins and devices keep their own preference.
 
 ## Install
 
@@ -77,7 +78,7 @@ https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-i
    streams in with a `Tab` keycap.
 2. Or type anything and pause with the caret at the end of the draft — a
    continuation ghost appears right after the caret.
-3. **Tab** turns the current candidate into an editable draft.
+3. When the `Tab` hint appears, **Tab** turns the current candidate into an editable draft.
    **Alt+Down** shows the next candidate, **Alt+Up** the previous one.
    **Escape** dismisses, and typing hides the ghost without sending anything.
 4. Accepting never submits the message; edit it or press Enter yourself.
@@ -146,7 +147,12 @@ A suggestion longer than 240 characters is cut at a word boundary.
 - Predictions are suggestions only; they never run tools or change the Session.
 - Accepting a suggestion and then editing it is a normal draft: it is only sent
   when you submit it.
-- Prediction calls do not appear in the Session log or its token meter.
+- Prediction calls consume model tokens and may incur provider charges even
+  though they do not appear in the Session log or its token meter.
+- Only final candidates can be accepted. A disconnected stream is discarded.
+- A continuation is hidden when there is too little room after the caret; it
+  never shifts left over your draft.
+- Final suggestions are announced through an accessible status message.
 - Requires a Harness build that provides `conversation.input.overlay`,
   `ctx.llm`, and `sessions.deriveMessages()`.
 
@@ -162,16 +168,18 @@ Probe a running GUI to watch the stream and cache timing:
 node tools/live-probe.mjs <sessionId> continue "Can you also"
 ```
 
-The 22 cases drive both Host endpoints against a fake Session and LLM service:
+The 30 cases drive both Host endpoints against a fake Session and LLM service:
 prompt contents (including tool activity), candidate normalization and spacing,
 streaming events, per-turn and per-draft caching, route and effort selection,
 failure reporting, and request validation. Client helpers (continuation
 joining, SSE parsing, streaming candidates) are unit-tested through the bundle's
-internal `__testing` export.
+internal `__testing` export. Component regression tests cover streaming acceptance,
+refused insertions, right-edge placement, truncated streams and accessible copy.
 
 ## Uninstall
 
-Disable **Composer predictions** in **Plugins → Installed**, or remove it with
+Switch **Settings → General → Composer predictions** off to pause suggestions.
+To uninstall, remove the bundle with
 `dsh plugin --profile <name> remove dsh-composer-predictions`.
 
 ## Changelog

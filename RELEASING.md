@@ -14,10 +14,15 @@ npm must be told which repository and workflow may publish.
    - Repository: `dsh-composer-predictions`
    - Workflow filename: `release.yml`
    - Environment: leave empty
-3. Save. The entry appears in the list immediately.
+   - Allowed actions: enable direct `npm publish`
+   - Allowed actions: enable direct `npm publish`
+3. Save. Complete the first successful publication within two days, before a
+   new publisher configuration expires.
 
-Until this exists, a tag push fails at the publish step with an authentication
-error; nothing else in the workflow is affected.
+Until this exists, a tag for an unpublished version fails at the publish step
+with an authentication error. The existing bypass-2FA publishing token cannot
+manage trusted publishers (`npm trust` returns 403); use an interactive npm
+login with account 2FA for this one-time setup. Do not copy the token into GitHub.
 
 ## Cut a release
 
@@ -40,12 +45,17 @@ The tag push starts the workflow: it checks that the tag matches
 ## Market index
 
 `market-index.json` is a DSH format-1 market index that lists this package, so a
-Discover tab can show it. Bump `plugins[0].versions[0]` (version and
-`publishTimestamp` in Unix seconds) in the same commit as a release:
+Discover tab can show it. After npm confirms the new version, bump `plugins[0].versions[0]` (version and
+`publishTimestamp` in Unix seconds) in a follow-up commit:
 
 ```bash
 npm view dsh-composer-predictions time --json   # exact publish time
 ```
+
+Commit and push the index update only after the published version is visible.
+Do not run manual publication concurrently with the workflow. If trusted
+publishing is unavailable, publish locally first and push the tag after npm
+confirms it; the workflow verifies the existing package and skips republishing.
 
 Index URL: https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-index.json
 

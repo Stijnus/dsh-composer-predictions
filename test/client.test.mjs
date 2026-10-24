@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 test('client half registers the composer overlay slot', async () => {
   let definition
   globalThis.window = {
+    addEventListener() {}, removeEventListener() {},
     __ModuleLoader__: {
       load(value) {
         definition = value
@@ -32,6 +33,7 @@ test('client half registers the composer overlay slot', async () => {
 
   const module = definition.factory((id) => {
     if (id === 'react') return react
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { Switch: 'switch' }
     throw new Error(`unexpected require: ${id}`)
   })
 
@@ -67,10 +69,10 @@ test('client half registers the composer overlay slot', async () => {
   assert.equal(localeRegistrations[0].namespace, 'composer-predictions')
   assert.equal(typeof localeRegistrations[0].dictionaries.en.accept, 'string')
 
-  assert.equal(registered.length, 1)
-  assert.equal(registered[0].spec.name, 'conversation.input.overlay')
-  assert.equal(registered[0].spec.id, 'composer-predictions')
-  assert.equal(typeof registered[0].component, 'function')
+  assert.equal(registered.length, 2)
+  assert.equal(registered[1].spec.name, 'conversation.input.overlay')
+  assert.equal(registered[1].spec.id, 'composer-predictions')
+  assert.equal(typeof registered[1].component, 'function')
 })
 
 
@@ -83,6 +85,7 @@ test('continuation joining only separates real words', async () => {
 
   assert.equal(joinContinuation('Can you also', 'add the tests'), ' add the tests')
   assert.equal(joinContinuation('Can you also ', 'add the tests'), 'add the tests')
+  assert.equal(joinContinuation('Can you also ', ' add the tests'), 'add the tests')
   assert.equal(joinContinuation('Can you also', ' add the tests'), ' add the tests')
   assert.equal(joinContinuation('', 'text'), 'text')
   assert.equal(joinContinuation('Use (', 'x)'), 'x)')
@@ -104,4 +107,41 @@ test('SSE text and streaming candidates are parsed defensively', async () => {
   assert.equal(streamingCandidate('- first option'), 'first option')
   assert.equal(streamingCandidate('NONE'), '')
   assert.equal(streamingCandidate(''), '')
+})
+
+
+test('stream consumption requires a terminal event and handles split UTF-8 frames', async () => {
+  let definition
+  globalThis.window = { __ModuleLoader__: { load: value => { definition = value } } }
+  await import('../client.js?consume')
+  const { consumeStream } = definition.factory(() => ({})).__testing
+  const bytes = new TextEncoder().encode('data: {"type":"delta","text":"继续"}\n\ndata: {"type":"done","items":["继续"]}\n\n')
+  const events = []
+  const stream = new ReadableStream({ start(controller) {
+    for (let i = 0; i < bytes.length; i++) controller.enqueue(bytes.slice(i, i + 1))
+    controller.close()
+  } })
+  assert.equal(await consumeStream(stream, new AbortController().signal, event => events.push(event)), true)
+  assert.equal(events[0].text, '继续')
+  assert.equal(stream.locked, false)
+  const incomplete = new ReadableStream({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('data: {"type":"delta","text":"unfinished"}\n\n'))
+    controller.close()
+  } })
+  assert.equal(await consumeStream(incomplete, new AbortController().signal, () => {}), false)
+})
+
+test('prediction preference persists and works without local storage', async () => {
+  let definition
+  let stored = 'false'
+  globalThis.window = { localStorage: { getItem: () => stored, setItem: (_key, value) => { stored = value } }, __ModuleLoader__: { load: value => { definition = value } } }
+  await import('../client.js?preference')
+  const { readEnabled, setEnabled } = definition.factory(() => ({})).__testing
+  assert.equal(readEnabled(), false)
+  setEnabled(true)
+  assert.equal(readEnabled(), true)
+  assert.equal(stored, 'true')
+  window.localStorage.setItem = () => { throw new Error('Storage blocked') }
+  setEnabled(false)
+  assert.equal(readEnabled(), false)
 })
