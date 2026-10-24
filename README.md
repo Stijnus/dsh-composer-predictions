@@ -64,6 +64,13 @@ dsh plugin --profile <name> add dsh-composer-predictions
 Then restart the Harness (a profile addition is applied at boot). A linked
 source checkout is picked up again when the profile recomposes.
 
+Or add the plugin market index to Discover (**Plugins → Discover → Index
+sources**):
+
+```
+https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-index.json
+```
+
 ## Use
 
 1. Send a message and let the agent finish — a dimmed next-message suggestion
