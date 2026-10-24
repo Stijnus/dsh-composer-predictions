@@ -4,7 +4,10 @@
 [![license](https://img.shields.io/npm/l/dsh-composer-predictions)](LICENSE)
 [![topic](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
 
-AI ghost text for the message box in the DeepSeek Harness Web GUI.
+AI autocomplete and ghost-text suggestions for the composer in **DeepSeek
+Harness desktop and the Web GUI**.
+
+**Current release: 1.2.0** · [Install or update](#install) · [中文说明](#中文说明)
 
 - **Next message** — after the agent replies, the empty composer shows a
   streamed suggestion for your likely next message. **Tab** accepts it as an
@@ -50,7 +53,7 @@ on this device. Other browser origins and devices keep their own preference.
 
 ## Install
 
-Inside the DeepSeek Harness Web GUI: **Plugins → Install**, then enter
+In the **DeepSeek Harness desktop app or Web GUI**: **Plugins → Install**, then enter
 
 ```
 dsh-composer-predictions
@@ -86,6 +89,20 @@ https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-i
 ![Next-message ghost](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/next-message-ghost.png)
 
 ![Inline continuation ghost](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/continuation-ghost.png)
+
+## 中文说明
+
+**DeepSeek Harness 桌面端 / Web 的 Tab 自动补全与输入预测。** 回复结束后，
+空输入框显示下一条消息的灰字建议；输入停顿时，续写光标末尾的草稿。
+`Tab` 采纳已完成的候选为可编辑草稿，不会自动发送；`Alt+↓/↑` 切换最多三个候选，
+`Esc` 关闭。设置 → 通用 → 输入预测可开关，设置保存在当前设备的浏览器中。
+
+安装或更新：**插件 → 安装 → `dsh-composer-predictions@1.2.0`**，然后重启 Harness。
+CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions@1.2.0`，
+把 `web` 换成自己的 profile。预测会调用会话模型并消耗 token，虽然不会出现在会话日志和 token 统计中。
+
+也可以把上方 [Install](#install) 中的市场索引添加到「插件 → 发现」。
+演示、完整配置与限制见本页；[1.2.0 发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.2.0)。
 
 ## How it works
 

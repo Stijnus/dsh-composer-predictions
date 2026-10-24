@@ -28,8 +28,8 @@
         "zh": "输入预测"
       },
       "description": {
-        "en": "Tab-completion for the DeepSeek Harness composer: next-message ghost text plus inline continuation of your draft, with keyboard candidate cycling.",
-        "zh": "给 DeepSeek Harness 输入框加 Tab 补全：回复后建议下一句话，打字时在光标处续写草稿，支持键盘切换候选。"
+        "en": "Tab autocomplete for DeepSeek Harness desktop and web: next-message ghost text, inline draft completion and keyboard candidate cycling.",
+        "zh": "DeepSeek Harness 桌面端 / Web 的 Tab 自动补全：回复后建议下一句话，输入停顿时续写草稿，键盘切换候选，设置中可开关。"
       },
       "author": "stijnus",
       "homepage": "https://github.com/Stijnus/dsh-composer-predictions",
@@ -44,7 +44,14 @@
           "deepseek-harness",
           "composer",
           "autocomplete",
-          "tab-completion"
+          "tab-completion",
+          "ghost-text",
+          "inline-completion",
+          "prediction",
+          "desktop",
+          "输入预测",
+          "自动补全",
+          "草稿续写"
         ]
       },
       "versions": [
