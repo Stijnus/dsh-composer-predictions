@@ -8,7 +8,7 @@ const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, fetch } = {}) {
   let definition, registered, request
   let index = 0
-  const state = [{ mode: draft === '' ? 'next' : 'continue', items, index: 0, stream, active }, { left: 100, top: 10, maxWidth: 400, height: 24 }]
+  const state = [{ mode: draft === '' ? 'next' : 'continue', items, index: 0, stream, active }, { left: 100, top: 10, maxWidth: 400, height: 24 }, 0]
   const effects = [], layouts = [], listeners = new Map(), inserted = []
   const editor = { contains: () => true, getBoundingClientRect: () => ({ width, height: 100 }) }
   const card = { contains: () => true, querySelector: () => editor, getBoundingClientRect: () => ({ left: 0, top: 0, right: width, width, height: 100 }) }
@@ -47,6 +47,17 @@ test('refused insertion never replaces the existing draft', () => {
   const view = mount({ insert: false })
   for (const effect of view.effects) effect()
   assert.doesNotThrow(() => view.listeners.get('keydown')(keyEvent('Tab')))
+  assert.equal(view.state[0].items.length, 0)
+  assert.equal(view.state[1], null)
+})
+
+test('ending IME composition re-arms prediction timers even without another draft change', () => {
+  const view = mount()
+  for (const effect of view.effects) effect()
+  view.listeners.get('compositionstart')()
+  assert.equal(view.state[0].items.length, 0)
+  view.listeners.get('compositionend')()
+  assert.equal(view.state[2], 1)
 })
 
 test('right edge hides the ghost instead of moving it over the draft', () => {

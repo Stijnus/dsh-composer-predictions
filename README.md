@@ -7,7 +7,7 @@
 AI autocomplete and ghost-text suggestions for the composer in **DeepSeek
 Harness desktop and the Web GUI**.
 
-**Current release: 1.2.1** · [Install or update](#install) · [中文说明](#中文说明)
+**Current release: 1.2.2** · [Install or update](#install) · [中文说明](#中文说明)
 
 - **Next message** — after the agent replies, the empty composer shows a
   streamed suggestion for your likely next message. **Tab** accepts it as an
@@ -53,6 +53,9 @@ on this device. Other browser origins and devices keep their own preference.
 
 ## Install
 
+Requires Harness `>=0.2.1-rc.3 <0.3.0-0`; desktop and web are tested on
+`0.2.1-rc.3`. Predictions use the same authenticated owner access as the app.
+
 In the **DeepSeek Harness desktop app or Web GUI**: **Plugins → Install**, then enter
 
 ```
@@ -97,12 +100,12 @@ https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-i
 `Tab` 采纳已完成的候选为可编辑草稿，不会自动发送；`Alt+↓/↑` 切换最多三个候选，
 `Esc` 关闭。设置 → 通用 → 输入预测可开关，设置保存在当前设备的浏览器中。
 
-安装或更新：**插件 → 安装 → `dsh-composer-predictions@1.2.1`**，然后重启 Harness。
-CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions@1.2.1`，
+安装或更新：**插件 → 安装 → `dsh-composer-predictions@1.2.2`**，然后重启 Harness。
+CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions@1.2.2`，
 把 `web` 换成自己的 profile。预测会调用会话模型并消耗 token，虽然不会出现在会话日志和 token 统计中。
 
 也可以把上方 [Install](#install) 中的市场索引添加到「插件 → 发现」。
-演示、完整配置与限制见本页；[1.2.1 发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.2.1)。
+演示、完整配置与限制见本页；[1.2.2 发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.2.2)。
 
 ## How it works
 
@@ -124,8 +127,9 @@ CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions@1.2.1
   model restated are trimmed. A continuation keeps the model's leading
   separator space; the Client adds one only when a non-CJK draft and
   continuation would otherwise glue two words together.
-- Results are cached per Session sequence (and per draft for continuations), so
-  a repeated request for unchanged context costs no model call.
+- Completed results are cached per Session sequence (and per draft for
+  continuations), so a repeated request reuses the cached result. Simultaneous
+  requests from different views have independent cancellation and may each call the model.
 - The **Client half** registers into `conversation.input.overlay`, debounces
   requests (600 ms after a turn settles, 500 ms after a typing pause), aborts
   superseded requests, and renders the ghost over the empty composer or at the
@@ -170,8 +174,8 @@ A suggestion longer than 240 characters is cut at a word boundary.
 - A continuation is hidden when there is too little room after the caret; it
   never shifts left over your draft.
 - Final suggestions are announced through an accessible status message.
-- Requires a Harness build that provides `conversation.input.overlay`,
-  `ctx.llm`, and `sessions.deriveMessages()`.
+- Requires a compatible Harness build with `conversation.input.overlay`,
+  `settings.general.item`, `connection.admit()`, `ctx.llm` and `session.deriveMessages()`.
 
 ## Test
 
@@ -179,16 +183,18 @@ A suggestion longer than 240 characters is cut at a word boundary.
 node --test
 ```
 
-Probe a running GUI to watch the stream and cache timing:
+Probe a running GUI to watch the stream and cache timing. First set `DSH_COOKIE`
+to an authenticated Harness cookie in your environment; treat it as a secret
+and never commit or include it in logs.
 
 ```bash
-node tools/live-probe.mjs <sessionId> continue "Can you also"
+DSH_URL='http://127.0.0.1:<port>' node tools/live-probe.mjs <sessionId> continue "Can you also"
 ```
 
-The 30 cases drive both Host endpoints against a fake Session and LLM service:
+The 36 cases drive both Host endpoints against a fake Session and LLM service:
 prompt contents (including tool activity), candidate normalization and spacing,
 streaming events, per-turn and per-draft caching, route and effort selection,
-failure reporting, and request validation. Client helpers (continuation
+failure reporting, HTTP authentication/owner checks, cancellation and request validation. Client helpers (continuation
 joining, SSE parsing, streaming candidates) are unit-tested through the bundle's
 internal `__testing` export. Component regression tests cover streaming acceptance,
 refused insertions, right-edge placement, truncated streams and accessible copy.

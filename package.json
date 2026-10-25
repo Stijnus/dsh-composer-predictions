@@ -1,6 +1,6 @@
 {
   "name": "dsh-composer-predictions",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Tab autocomplete for the DeepSeek Harness desktop and web composer: next-message ghost text, inline draft completion and keyboard candidate cycling",
   "type": "module",
   "license": "MIT",
@@ -58,5 +58,8 @@
   "homepage": "https://github.com/Stijnus/dsh-composer-predictions#readme",
   "bugs": {
     "url": "https://github.com/Stijnus/dsh-composer-predictions/issues"
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0-0"
   }
 }

@@ -36,10 +36,10 @@ npm version patch --no-git-tag-version   # or minor / major
 
 # 2. Ship it
 git add -A
-git commit -m "1.2.0: <summary>"
-git tag -a v1.2.0 -m "1.2.0"
+git commit -m "1.2.2: <summary>"
+git tag -a v1.2.2 -m "1.2.2"
 git push origin main
-git push origin v1.2.0
+git push origin v1.2.2
 ```
 
 The tag push starts the workflow: it checks that the tag matches
@@ -66,7 +66,7 @@ Index URL: https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/ma
 
 ```bash
 npm view dsh-composer-predictions version
-npm view dsh-composer-predictions@1.2.0 dist.attestations
+npm view dsh-composer-predictions@1.2.2 dist.attestations
 ```
 
 The npm package page also shows a **Provenance** badge linking the published
@@ -82,3 +82,19 @@ tarball to the workflow run.
   `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` on the publish step. Prefer OIDC.
 - `0.0.0-stage` is npm's stub from staged publishing, deprecated in favour of
   current versions; it is not a release.
+
+## Desktop and web upgrade checks
+
+The compatibility range starts at the tested Harness `0.2.1-rc.3` and excludes
+`0.3.0`. Re-test before widening it. The client uses `conversation.input.overlay`,
+`settings.general.item`, the public input actions, and resident composer DOM
+(`[data-composer-card]`, contenteditable, caret geometry). Host auth uses the
+required `connection.admit()` service and only accepts owner peers. A Harness
+upgrade can change these contracts even within a preview series.
+
+Before tagging, run the tests and install the exact packed tarball in an empty
+profile. In both the desktop app and authenticated web GUI, check next-message
+and inline suggestions, Tab without sending, Alt+Up/Down, Escape, draft/session
+changes, settings off/on and persistence. Verify both HTTP routes return 401 for
+unauthenticated peers and 403 for cross-site requests, with no model calls.
+Keep test drafts unsent and restore existing drafts and preferences afterwards.

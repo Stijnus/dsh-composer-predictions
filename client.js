@@ -362,6 +362,7 @@ window.__ModuleLoader__.load({
       const running = useSessionStatus((state) => (state === undefined ? false : state.get(sessionId)?.running === true))
       const [ghost, setGhost] = React.useState(NO_GHOST)
       const [box, setBox] = React.useState(null)
+      const [compositionEnd, setCompositionEnd] = React.useState(0)
 
       const abortRef = React.useRef(null)
       const composingRef = React.useRef(false)
@@ -468,6 +469,7 @@ window.__ModuleLoader__.load({
         }
         const onCompositionEnd = () => {
           composingRef.current = false
+          setCompositionEnd(value => value + 1)
         }
         document.addEventListener('compositionstart', onCompositionStart, true)
         document.addEventListener('compositionend', onCompositionEnd, true)
@@ -512,7 +514,7 @@ window.__ModuleLoader__.load({
           void request('next', '')
         }, SETTLE_MS)
         return () => clearTimeout(timer)
-      }, [sessionId, running, draft, request, predictionsEnabled])
+      }, [sessionId, running, draft, request, predictionsEnabled, compositionEnd])
 
       // `continue`: ask after a pause, only with the caret at the draft's end.
       React.useEffect(() => {
@@ -528,7 +530,7 @@ window.__ModuleLoader__.load({
           void request('continue', draft.slice(-MAX_DRAFT_CHARS))
         }, TYPE_PAUSE_MS)
         return () => clearTimeout(timer)
-      }, [sessionId, draft, request, predictionsEnabled])
+      }, [sessionId, draft, request, predictionsEnabled, compositionEnd])
 
       // A prediction skipped while the page was hidden is retried on return.
       React.useEffect(() => {
@@ -682,14 +684,14 @@ window.__ModuleLoader__.load({
         const expected = ghost.mode === 'continue' ? draft + value : value
         dismissedRef.current = { draft: expected }
         abortRef.current?.abort()
+        setGhost(NO_GHOST)
+        setBox(null)
         try {
           // A refused insertion must never be bypassed by replacing the draft.
           if (inputActions.insertText(value, inputActions.captureInsertion()) !== true) return
         } catch {
           return
         }
-        setGhost(NO_GHOST)
-        setBox(null)
         // Accepting leaves an editable draft: hand the keyboard back to the editor.
         try {
           const found = composerElements()

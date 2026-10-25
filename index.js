@@ -14,7 +14,7 @@
 
 export const name = 'composer-predictions'
 
-export const inject = ['llm', 'sessions', 'webServer']
+export const inject = ['connection', 'llm', 'sessions', 'webServer']
 
 /** Same-origin endpoint the Client half posts to (JSON, kept for compatibility). */
 const ENDPOINT = '/composer-prediction'
@@ -85,7 +85,13 @@ const CONTINUE_SYSTEM_PROMPT = [
 export function apply(ctx, config) {
   const options = resolveOptions(config)
   const cache = new Map()
-  const inflight = new Map()
+  const inflight = new Set()
+
+  ctx.effect(() => () => {
+    for (const controller of inflight) controller.abort()
+    inflight.clear()
+    cache.clear()
+  })
 
   ctx.effect(() =>
     ctx.webServer.register({
@@ -206,9 +212,20 @@ function describeError(error) {
  * @returns `null` when the response was already written, a plan, or an error.
  */
 async function planRequest(ctx, request, response) {
+  const admission = ctx.connection.admit(request)
+  if ('rejection' in admission) {
+    return { status: admission.rejection, error: admission.rejection === 401 ? 'unauthorized' : 'forbidden' }
+  }
+  // Predictions read the owner's sessions and spend the owner's model tokens.
+  if (admission.peer.principal.kind !== 'owner') return { status: 403, error: 'forbidden' }
+
   if (request.method !== 'POST') {
     respond(response, 405, { suggestion: null, suggestions: [], reason: 'method-not-allowed' })
     return null
+  }
+
+  if (request.headers['content-type']?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
+    return { status: 415, error: 'unsupported-media-type' }
   }
 
   let body
@@ -217,6 +234,8 @@ async function planRequest(ctx, request, response) {
   } catch {
     return { status: 400, error: 'invalid-body' }
   }
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return { status: 400, error: 'invalid-body' }
+  if (body.mode !== undefined && body.mode !== 'next' && body.mode !== 'continue') return { status: 400, error: 'invalid-mode' }
 
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId : ''
   if (sessionId === '') return { status: 400, error: 'missing-session' }
@@ -229,10 +248,7 @@ async function planRequest(ctx, request, response) {
   if (mode === 'continue' && draft.trim() === '') return { status: 200, error: 'no-draft' }
 
   const seq = Number(session.seq)
-  const key =
-    mode === 'next'
-      ? `${sessionId}:${seq}`
-      : `${sessionId}:${seq}:d${hashText(draft)}`
+  const key = JSON.stringify([sessionId, seq, mode, draft])
 
   return { sessionId, session, mode, draft, seq, key }
 }
@@ -247,17 +263,17 @@ async function runPrediction(ctx, options, cache, inflight, plan, signals, onDel
     return { items: remembered.items, reason: undefined, cached: true }
   }
 
-  // Supersede only an identical request; another view or the JSON endpoint on
-  // the same Session must not cancel this one.
-  inflight.get(plan.key)?.abort()
+  // Each view owns its cancellation; an identical request must not cancel it.
   const controller = new AbortController()
-  inflight.set(plan.key, controller)
+  inflight.add(controller)
   try {
     const result = await predict(ctx, options, plan.session, plan.mode, plan.draft, joinSignals([controller.signal, ...signals]), onDelta)
-    if (result.items.length > 0) remember(cache, plan.key, { items: result.items })
+    if (result.items.length > 0 && !controller.signal.aborted && !signals.some(signal => signal.aborted)) {
+      remember(cache, plan.key, { items: result.items })
+    }
     return result
   } finally {
-    if (inflight.get(plan.key) === controller) inflight.delete(plan.key)
+    inflight.delete(controller)
   }
 }
 
@@ -280,6 +296,7 @@ async function predict(ctx, options, session, mode, draft, signal, onDelta) {
   let text = ''
   let finish
   try {
+    deadline.signal.throwIfAborted()
     const call = await ctx.llm.prepareCall(
       { provider: route.provider, model: route.model, maxTokens: options.maxOutputTokens },
       deadline.signal,
@@ -290,6 +307,7 @@ async function predict(ctx, options, session, mode, draft, signal, onDelta) {
     )
     const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }] }]
     for await (const chunk of call.stream({ ...call.config, messages, system, signal: deadline.signal })) {
+      deadline.signal.throwIfAborted()
       if (chunk.type === 'text-delta') {
         text += chunk.text
         onDelta?.(chunk.text)
@@ -297,6 +315,7 @@ async function predict(ctx, options, session, mode, draft, signal, onDelta) {
         finish = chunk.reason
       }
     }
+    deadline.signal.throwIfAborted()
   } finally {
     deadline.dispose()
   }
@@ -305,6 +324,7 @@ async function predict(ctx, options, session, mode, draft, signal, onDelta) {
   // outcome reports its own failure instead of looking like a missing stream.
   const failure = finishFailure(finish)
   if (failure !== undefined) return { items: [], reason: failure }
+  if (finish.kind === 'max-tokens') text = text.slice(0, text.lastIndexOf('\n') + 1)
 
   const cue = mode === 'continue' ? CONTINUE_CUE : NEXT_CUE
   const items = normalizeCandidates(text, options.maxSuggestions, mode === 'continue' ? draft : '', cue)
@@ -517,16 +537,6 @@ function boundSuggestion(line) {
   const cut = line.slice(0, 240)
   const space = cut.lastIndexOf(' ')
   return space > 120 ? cut.slice(0, space) : cut
-}
-
-/** FNV-1a over the draft: a stable, cheap cache identity. */
-function hashText(text) {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return (hash >>> 0).toString(36)
 }
 
 function readJsonBody(request) {

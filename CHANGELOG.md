@@ -6,6 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-25
+
+### Fixed
+
+- Both prediction routes require Harness connection admission and owner access,
+  including the app's Host/Origin checks, before reading sessions or using tokens.
+- Reject non-JSON, malformed, oversized and invalid-mode requests without model work.
+- Simultaneous requests from different views no longer cancel each other; disabling
+  the host plugin cancels outstanding model calls and clears its cache.
+- Cache draft text exactly, preventing one draft from reusing a hash collision's suggestion.
+- Disconnected or cancelled calls never cache partial output; token-limited output
+  offers only complete lines.
+- Clear a refused insertion's ghost and resume predictions after IME composition ends.
+
+### Changed
+
+- Declare Harness compatibility `>=0.2.1-rc.3 <0.3.0-0` (tested on `0.2.1-rc.3`).
+- Add HTTP admission, input validation, cancellation, cache and IME regressions.
+- The manual probe now requires an authenticated cookie and fails on HTTP errors.
+
 ## [1.2.1] - 2026-10-25
 
 ### Changed

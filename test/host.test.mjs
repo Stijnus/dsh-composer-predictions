@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { createServer } from 'node:http'
 
 import { apply } from '../index.js'
 
@@ -28,6 +29,8 @@ function makeHarness(options = {}) {
   const routes = new Map()
   const sessions = new Map()
   const llmCalls = []
+  const sessionReads = []
+  const disposers = []
   let reply = options.reply ?? 'ok'
   let finish = options.finish ?? { kind: 'stop' }
   let failing = options.fail === true
@@ -42,7 +45,7 @@ function makeHarness(options = {}) {
           llmCalls.push({ config, controls, request, model })
           if (failing) throw new Error('model exploded')
           const chunks = typeof reply === 'function' ? reply(request) : [{ type: 'text-delta', text: reply }]
-          for (const chunk of chunks) yield chunk
+          for await (const chunk of chunks) yield chunk
           yield { type: 'finish', reason: finish }
         },
       }
@@ -52,6 +55,7 @@ function makeHarness(options = {}) {
   const ctx = {
     effect(fn) {
       const dispose = fn()
+      if (dispose) disposers.push(dispose)
       return () => dispose?.()
     },
     webServer: {
@@ -60,7 +64,8 @@ function makeHarness(options = {}) {
         return () => routes.delete(route.path)
       },
     },
-    sessions: { get: (id) => sessions.get(id) },
+    sessions: { get: (id) => { sessionReads.push(id); return sessions.get(id) } },
+    connection: { admit: options.admit ?? (() => ({ peer: { principal: { kind: 'owner' } } })) },
     llm,
     get: () => options.fallbackModel,
   }
@@ -70,6 +75,8 @@ function makeHarness(options = {}) {
     routes,
     sessions,
     llmCalls,
+    sessionReads,
+    dispose: () => disposers.reverse().forEach(fn => fn()),
     setReply(value) {
       reply = value
     },
@@ -85,6 +92,7 @@ function makeHarness(options = {}) {
 function makeRequest(body, method = 'POST') {
   const request = new EventEmitter()
   request.method = method
+  request.headers = { 'content-type': 'application/json' }
   request.destroy = () => {}
   setImmediate(() => {
     if (body !== undefined) request.emit('data', Buffer.from(JSON.stringify(body)))
@@ -195,7 +203,7 @@ test('a max-tokens finish still offers whole streamed lines', async () => {
 
   const response = await callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
   const payload = JSON.parse(response.chunks.join(''))
-  assert.deepEqual(payload.suggestions, ['first option', 'second option'])
+  assert.deepEqual(payload.suggestions, ['first option'])
 })
 
 test('next mode declines when the agent has not replied yet', async () => {
@@ -426,4 +434,114 @@ test('prompt labels and the task cue are not offered as suggestions', async () =
     draft: 'Can you also',
   })
   assert.deepEqual(JSON.parse(response.chunks.join('')).suggestions, [' add a loading state'])
+})
+
+test('both HTTP routes enforce connection admission before reading sessions or calling the model', async t => {
+  const admissions = []
+  const harness = makeHarness({ admit: request => {
+    admissions.push(request.url)
+    if (request.headers.origin === 'https://example.org' || request.headers['sec-fetch-site'] === 'cross-site') return { rejection: 403 }
+    if (request.headers.cookie !== 'test-owner=valid') return { rejection: 401 }
+    return { peer: { principal: { kind: request.headers['x-test-principal'] ?? 'owner' } } }
+  } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const server = createServer((request, response) => harness.routes.get(request.url).handler(request, response))
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections() }))
+  const base = `http://127.0.0.1:${server.address().port}`
+  for (const path of [JSON_ENTRY, STREAM_ENTRY]) {
+    for (const [headers, status] of [
+      [{}, 401],
+      [{ origin: 'https://example.org', 'content-type': 'text/plain' }, 403],
+      [{ cookie: 'test-owner=valid', 'sec-fetch-site': 'cross-site' }, 403],
+      [{ cookie: 'test-owner=valid', 'x-test-principal': 'delegate' }, 403],
+      [{ cookie: 'test-owner=valid', 'content-type': 'text/plain' }, 415],
+    ]) {
+      const response = await fetch(base + path, { method: 'POST', headers, body: JSON.stringify({ sessionId: 's1' }) })
+      assert.equal(response.status, status)
+      await response.text()
+    }
+    assert.equal(harness.llmCalls.length, 0)
+  }
+  for (const path of [JSON_ENTRY, STREAM_ENTRY]) {
+    for (const body of ['{', 'null', '[]', '3', JSON.stringify({ sessionId: 's1', mode: 'bogus' }), JSON.stringify({ sessionId: 's1', draft: 'x'.repeat(65536) })]) {
+      const response = await fetch(base + path, { method: 'POST', headers: { cookie: 'test-owner=valid', 'content-type': 'application/json' }, body })
+      assert.equal(response.status, 400)
+      await response.text()
+    }
+  }
+  assert.equal(harness.llmCalls.length, 0)
+  assert.equal(harness.sessionReads.length, 0)
+  for (const path of [JSON_ENTRY, STREAM_ENTRY]) {
+    const response = await fetch(base + path, { method: 'POST', headers: { cookie: 'test-owner=valid', 'content-type': 'application/json; charset=utf-8' }, body: JSON.stringify({ sessionId: 's1' }) })
+    assert.equal(response.status, 200)
+    assert.match(await response.text(), /ok/)
+  }
+  assert.equal(harness.llmCalls.length, 1, 'authenticated JSON and SSE share the cache')
+  assert.equal(admissions.length, 24)
+})
+
+test('a token-limited partial first candidate is discarded', async () => {
+  const harness = makeHarness({ reply: 'Run the tests and then che', finish: { kind: 'max-tokens' } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const response = await callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
+  assert.deepEqual(JSON.parse(response.chunks.join('')).suggestions, [])
+})
+
+test('continuations with colliding former draft hashes never reuse another draft suggestion', async () => {
+  const harness = makeHarness({ reply: ' first suggestion' })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const route = harness.routes.get(JSON_ENTRY)
+  await callRoute(route, { sessionId: 's1', mode: 'continue', draft: 'Please update 1s8d3zb' })
+  harness.setReply(' second suggestion')
+  const response = await callRoute(route, { sessionId: 's1', mode: 'continue', draft: 'Please update xc4ukp' })
+  assert.deepEqual(JSON.parse(response.chunks.join('')).suggestions, [' second suggestion'])
+  assert.equal(harness.llmCalls.length, 2)
+})
+
+test('simultaneous requests do not cancel each other and plugin disposal aborts outstanding work', async () => {
+  const signals = []
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const harness = makeHarness({ reply: async function* (request) {
+    signals.push(request.signal)
+    await gate
+    yield { type: 'text-delta', text: 'Try the build again' }
+  } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const first = callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
+  const second = callRoute(harness.routes.get(STREAM_ENTRY), { sessionId: 's1' })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(signals.length, 2)
+  assert.equal(signals[0].aborted, false)
+  assert.equal(signals[1].aborted, false)
+  harness.dispose()
+  assert.ok(signals.every(signal => signal.aborted))
+  release()
+  const [json, stream] = await Promise.all([first, second])
+  assert.deepEqual(JSON.parse(json.chunks.join('')).suggestions, [])
+  assert.equal(sseEvents(stream).at(-1).type, 'error')
+})
+
+test('disconnect cancels only that request and never caches its partial output', async () => {
+  let signal, release
+  const gate = new Promise(resolve => { release = resolve })
+  const harness = makeHarness({ reply: async function* (request) {
+    signal = request.signal
+    yield { type: 'text-delta', text: 'partial' }
+    await gate
+  } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const response = makeResponse()
+  const handled = harness.routes.get(STREAM_ENTRY).handler(makeRequest({ sessionId: 's1' }), response)
+  await new Promise(resolve => setImmediate(resolve))
+  response.destroyed = true
+  response.emit('close')
+  assert.equal(signal.aborted, true)
+  release()
+  await handled
+  harness.setReply('A fresh completed suggestion')
+  const next = await callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
+  assert.equal(JSON.parse(next.chunks.join('')).cached, false)
+  assert.equal(harness.llmCalls.length, 2)
 })
