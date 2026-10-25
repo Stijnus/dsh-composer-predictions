@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-10-25
+
+### Fixed
+
+- The ghost is anchored to the composer card that owns the overlay, found
+  through the overlay's own DOM ancestry. It previously measured the first
+  `[data-composer-card]` in the document, so with more than one composer
+  mounted (another panel, a transition, a second window) the suggestion could
+  paint over another conversation and Tab would consult the wrong card.
+- Switching Sessions also clears the measured box, not just the suggestion.
+
 ## [1.2.3] - 2026-10-25
 
 ### Changed

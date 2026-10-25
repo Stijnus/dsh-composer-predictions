@@ -14,7 +14,17 @@ function mount({ draft = 'Can you also', active = false, stream = '', items = ['
   const card = { contains: () => true, querySelector: () => editor, getBoundingClientRect: () => ({ left: 0, top: 0, right: width, width, height: 100 }) }
   const document = { activeElement: editor, hidden: false, querySelector: () => card, createRange: () => ({ selectNodeContents() {}, setEnd() {}, toString: () => draft }), addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener() {} }
   const window = { __ModuleLoader__: { load: value => { definition = value } }, getSelection: () => ({ rangeCount: 1, getRangeAt: () => ({ collapsed: true, startContainer: {}, startOffset: draft.length, getBoundingClientRect: () => ({ left: caret, top: 10, width: 0, height: 24 }) }) }), getComputedStyle: () => ({ lineHeight: '24px' }), addEventListener() {}, removeEventListener() {} }
-  const react = { Fragment: 'fragment', createElement: (type, props, ...children) => ({ type, props, children }), useState: () => { const i = index++; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value }] }, useRef: () => ({ current: null }), useCallback: fn => { request = fn; return fn }, useEffect: fn => effects.push(fn), useLayoutEffect: fn => layouts.push(fn), useSyncExternalStore: (_subscribe, read) => read() }
+  const react = { Fragment: 'fragment', createElement: (type, props, ...children) => {
+    const element = { type, props, children }
+    // React assigns refs before effects; the harness does the same so the
+    // overlay can locate the composer card that owns it.
+    if (props && props.ref && typeof props.ref === 'object') props.ref.current = element
+    if (props && props['data-composer-prediction-anchor'] !== undefined) {
+      element.isConnected = true
+      element.closest = selector => (selector === '[data-composer-card]' ? card : null)
+    }
+    return element
+  }, useState: () => { const i = index++; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value }] }, useRef: () => ({ current: null }), useCallback: fn => { request = fn; return fn }, useEffect: fn => effects.push(fn), useLayoutEffect: fn => layouts.push(fn), useSyncExternalStore: (_subscribe, read) => read() }
   vm.runInNewContext(source, { window, document, fetch, AbortController, TextDecoder, ReadableStream, requestAnimationFrame: () => 1, cancelAnimationFrame() {}, setTimeout: () => 1, clearTimeout() {} })
   const module = definition.factory(id => id === 'react' ? react : { Switch: 'switch' })
   module.apply({ locale: { bind: () => key => key, register() {} }, effect: fn => fn(), slots: { inject: (_name, fn) => fn(), register: (spec, component) => { if (spec.name === 'conversation.input.overlay') registered = component } } })

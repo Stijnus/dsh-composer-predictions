@@ -162,10 +162,18 @@ window.__ModuleLoader__.load({
       opacity: 0.8,
     }
 
-    /** Locate the resident composer card and its editable root. */
-    function composerElements() {
+    /**
+     * Locate the composer card this overlay actually belongs to.
+     *
+     * The seat is rendered inside the resident composer card, so the anchor node
+     * is an ancestor-scoped key: a global `querySelector` would pick whichever
+     * card happens to be first in the document and paint that conversation's
+     * ghost over another one.
+     */
+    function composerElementsNear(anchor) {
       if (typeof document === 'undefined') return null
-      const card = document.querySelector('[data-composer-card]')
+      if (anchor === null || anchor === undefined || !anchor.isConnected) return null
+      const card = anchor.closest('[data-composer-card]')
       if (card === null) return null
       const editor = card.querySelector('[contenteditable="true"]') || card.querySelector('[role="textbox"]')
       return editor === null ? null : { card, editor }
@@ -364,6 +372,8 @@ window.__ModuleLoader__.load({
       const [box, setBox] = React.useState(null)
       const [compositionEnd, setCompositionEnd] = React.useState(0)
 
+      const anchorRef = React.useRef(null)
+      const elements = () => composerElementsNear(anchorRef.current)
       const abortRef = React.useRef(null)
       const composingRef = React.useRef(false)
       const dismissedRef = React.useRef(null)
@@ -484,6 +494,7 @@ window.__ModuleLoader__.load({
         dismissedRef.current = null
         abortRef.current?.abort()
         setGhost(NO_GHOST)
+        setBox(null)
         return () => abortRef.current?.abort()
       }, [sessionId])
 
@@ -524,7 +535,7 @@ window.__ModuleLoader__.load({
         if (dismissedRef.current !== null && dismissedRef.current.draft === draft) return undefined
         const timer = setTimeout(() => {
           if (composingRef.current) return
-          const found = composerElements()
+          const found = elements()
           if (found === null) return
           if (caretAtEnd(found.editor, draft) === null) return
           void request('continue', draft.slice(-MAX_DRAFT_CHARS))
@@ -564,7 +575,7 @@ window.__ModuleLoader__.load({
       React.useLayoutEffect(() => {
         if (ghost.mode !== 'next') return undefined
         const measure = () => {
-          const found = composerElements()
+          const found = elements()
           if (found === null) {
             setBox((previous) => (previous === null ? previous : null))
             return
@@ -590,7 +601,7 @@ window.__ModuleLoader__.load({
           setBox((previous) => (sameBox(previous, next) ? previous : next))
         }
         measure()
-        const found = composerElements()
+        const found = elements()
         let observer
         if (found !== null && typeof ResizeObserver === 'function') {
           observer = new ResizeObserver(measure)
@@ -610,7 +621,7 @@ window.__ModuleLoader__.load({
         let frame = 0
         const measure = () => {
           frame = 0
-          const found = composerElements()
+          const found = elements()
           if (found === null) {
             setBox((previous) => (previous === null ? previous : null))
             return
@@ -661,7 +672,7 @@ window.__ModuleLoader__.load({
         measure()
         document.addEventListener('selectionchange', schedule)
         document.addEventListener('scroll', schedule, true)
-        const found = composerElements()
+        const found = elements()
         window.addEventListener('resize', schedule)
         let observer
         if (found !== null && typeof ResizeObserver === 'function') {
@@ -694,7 +705,7 @@ window.__ModuleLoader__.load({
         }
         // Accepting leaves an editable draft: hand the keyboard back to the editor.
         try {
-          const found = composerElements()
+          const found = elements()
           if (found !== null && !found.card.contains(document.activeElement)) found.editor.focus()
         } catch {
           // Focus is a courtesy, never a failure.
@@ -717,7 +728,7 @@ window.__ModuleLoader__.load({
           if (event.defaultPrevented) return
           // An IME candidate window owns the keyboard while composing.
           if (event.isComposing === true || event.keyCode === 229) return
-          const found = composerElements()
+          const found = elements()
           if (found === null) return
           const target = typeof Node !== 'undefined' && event.target instanceof Node ? event.target : null
           const inEditor = found.editor.contains(document.activeElement)
@@ -755,7 +766,14 @@ window.__ModuleLoader__.load({
         return () => document.removeEventListener('keydown', onKeyDown, true)
       }, [visible, draft, ghost.items.length, ghost.active, ghost.mode])
 
-      if (!visible || box === null) return null
+      const anchor = h('span', {
+        ref: anchorRef,
+        'data-composer-prediction-anchor': '',
+        'aria-hidden': 'true',
+        style: { display: 'none' },
+      })
+
+      if (!visible || box === null) return anchor
 
       const continuation = ghost.mode === 'continue'
       const style = continuation ? CONTINUE_GHOST_STYLE : NEXT_GHOST_STYLE
@@ -775,6 +793,7 @@ window.__ModuleLoader__.load({
           showBadge ? h('span', { style: BADGE_STYLE, title: t('more') }, `${ghost.index + 1}/${ghost.items.length}`) : null,
           showKeycap ? h('kbd', { style: KEYCAP_STYLE, title: t('accept') }, 'Tab') : null,
         ),
+        anchor,
       )
     }
 
