@@ -15,7 +15,6 @@ npm must be told which repository and workflow may publish.
    - Workflow filename: `release.yml`
    - Environment: leave empty
    - Allowed actions: enable direct `npm publish`
-   - Allowed actions: enable direct `npm publish`
 3. Save. Complete the first successful publication within two days, before a
    new publisher configuration expires.
 

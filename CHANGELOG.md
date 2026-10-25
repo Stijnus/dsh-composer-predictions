@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-25
+
+### Changed
+
+- Publish desktop/web installation guidance and Chinese usage instructions on npm.
+- Expand package search terms for ghost text and inline autocomplete.
+- Release verification waits for npm's asynchronous publication to become visible.
+- Validate GitHub Actions trusted publishing with provenance. Runtime behavior is
+  unchanged from 1.2.0.
+
 ## [1.2.0] - 2026-10-24
 
 ### Added
