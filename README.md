@@ -1,5 +1,7 @@
 # dsh-composer-predictions
 
+[English](./README.md) · [中文](./README.zh-CN.md)
+
 [![npm](https://img.shields.io/npm/v/dsh-composer-predictions)](https://www.npmjs.com/package/dsh-composer-predictions)
 [![license](https://img.shields.io/npm/l/dsh-composer-predictions)](LICENSE)
 [![topic](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
@@ -22,6 +24,18 @@ and hides the ghost. Streaming text is a preview: `Tab` becomes available when
 the final candidates are ready.
 
 ![Typing a draft, the continuation ghost appearing, and Tab accepting it](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/demo.gif)
+
+## Quick start
+
+```sh
+dsh plugin --profile web add dsh-composer-predictions
+```
+
+Restart the Harness (or refresh the Web UI). Ghost-text suggestions start appearing in the composer.
+
+<sub>More from this suite: [Moodboard](https://github.com/Stijnus/dsh-moodboard) · [Composer Predictions](https://github.com/Stijnus/dsh-composer-predictions) · [Move to Workspace](https://github.com/Stijnus/dsh-move-to-workspace) · [Workspace Status](https://github.com/Stijnus/dsh-workspace-status) · [Prompt Rewrite](https://github.com/Stijnus/dsh-prompt-optimizer)</sub>
+
+<sub>⭐ If this saves you a step, a star helps the next DSH user find it.</sub>
 
 ## How this differs from the other prediction plugins
 
