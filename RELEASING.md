@@ -3,6 +3,10 @@
 Releases are cut by pushing a tag; `.github/workflows/release.yml` tests the
 commit and publishes it to npm with a provenance attestation.
 
+Trusted publishing was configured and validated on 2026-10-25 by the successful
+GitHub Actions publication of 1.2.1 with npm provenance. Future new version tags
+use this connection; no npm token is stored in GitHub.
+
 ## One-time setup: trusted publishing
 
 The workflow authenticates with OIDC, so no `NPM_TOKEN` secret is needed — but
