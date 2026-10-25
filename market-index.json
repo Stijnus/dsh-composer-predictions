@@ -152,6 +152,47 @@
           }
         }
       ]
+    },
+    {
+      "name": "dsh-move-to-workspace",
+      "title": {
+        "en": "Move to Workspace",
+        "zh": "移动到工作区"
+      },
+      "description": {
+        "en": "Move an existing conversation into another workspace, with a picker that can register a new workspace folder. The original is archived and restorable; it also organizes a whole folder of conversations at once.",
+        "zh": "将已有会话移动到其他工作区，并可在选择器中新建工作区文件夹。原会话会被归档且可恢复；也可一次整理一个文件夹下的所有会话。"
+      },
+      "author": "stijnus",
+      "homepage": "https://github.com/Stijnus/dsh-move-to-workspace",
+      "repository": {
+        "url": "https://github.com/Stijnus/dsh-move-to-workspace"
+      },
+      "metadata": {
+        "category": "ui-experience",
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "deepseek-harness",
+          "workspace",
+          "conversation",
+          "session",
+          "move"
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.1.10",
+          "publishTimestamp": 1792964049,
+          "source": {
+            "type": "npm",
+            "registry": "https://registry.npmjs.org/"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+          }
+        }
+      ]
     }
   ]
 }
