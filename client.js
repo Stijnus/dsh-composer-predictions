@@ -20,7 +20,38 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Switch } = require('@deepseek-ai/dsh-client-ui-primitives')
+
+    /**
+     * Local switch button. The host's own switch is a harness Client package,
+     * which a bundle must not load: it can change without notice, and a throw
+     * would take the whole plugin down. This reproduces its markup, CSS and
+     * behaviour with plugin-owned classes and theme tokens only.
+     */
+    const SWITCH_CSS = [
+      '.cp-switch{box-sizing:border-box;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);cursor:pointer}',
+      '.cp-switch[aria-checked="true"]{background:var(--dsw-alias-brand-primary)}',
+      '.cp-switch:disabled{cursor:default;opacity:.5}',
+      '.cp-switch:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}',
+      '.cp-switch__thumb{display:block;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-label-primary-foreground);transition:transform .12s}',
+      '.cp-switch[aria-checked="false"] .cp-switch__thumb{background:var(--dsw-alias-switch-thumb)}',
+      '.cp-switch[aria-checked="true"] .cp-switch__thumb{transform:translate(16px)}',
+    ].join('')
+
+    function Switch({ checked, label, onChange, disabled }) {
+      return h(
+        'button',
+        {
+          type: 'button',
+          role: 'switch',
+          'aria-checked': checked === true ? 'true' : 'false',
+          'aria-label': label,
+          className: 'cp-switch',
+          disabled: disabled === true,
+          onClick: () => onChange(checked !== true),
+        },
+        h('span', { className: 'cp-switch__thumb', 'aria-hidden': 'true' }),
+      )
+    }
 
     const NS = 'composer-predictions'
     const ENDPOINT = '/composer-prediction/v2'
@@ -92,6 +123,7 @@ window.__ModuleLoader__.load({
     function PredictionsSetting({ t }) {
       const checked = useEnabled()
       return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '16px 0', borderBottom: '0.5px solid var(--dsw-alias-border-l2)' } },
+        h('style', null, SWITCH_CSS),
         h('div', null,
           h('div', { style: { fontSize: 14, lineHeight: '20px' } }, t('enabled')),
           h('div', { style: { fontSize: 12, lineHeight: '18px', marginTop: 4, color: 'var(--dsw-alias-label-secondary)' } }, t('description')),

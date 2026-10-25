@@ -40,9 +40,10 @@ for you.
 | Streamed rendering | ✅ SSE (`/v2`) | not documented | ✅ | ✅ |
 | Recent tool calls and outcomes in the prompt | ✅ | — | — | — |
 | Cache | ✅ per turn + per draft | ✅ | ✅ | not documented |
+| Switch off in Settings, no uninstall | ✅ Settings → General | ✅ Settings section | not documented | not documented |
 
 "—" means the feature is not mentioned in that package's README as of
-2026-10-24, not that it is impossible. If all you want is an after-turn
+2026-10-25, not that it is impossible. If all you want is an after-turn
 suggestion, `dsh-composer-prediction` is a perfectly good, more established
 choice — this plugin is for people who also want the caret continuation and
 keyboard-only candidate switching.

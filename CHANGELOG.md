@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-10-25
+
+### Changed
+
+- The **Settings → General** row draws its own switch instead of loading
+  `@deepseek-ai/dsh-client-ui-primitives`. A harness-side change to that package
+  could previously fail the whole plugin at load; the markup, theme tokens and
+  behaviour are unchanged.
+- The README comparison table names the Settings switch.
+
+
 ## [1.2.4] - 2026-10-25
 
 ### Fixed
