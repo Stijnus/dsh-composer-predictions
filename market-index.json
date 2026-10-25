@@ -193,6 +193,47 @@
           }
         }
       ]
+    },
+    {
+      "name": "dsh-workspace-status",
+      "title": {
+        "en": "Workspace Status",
+        "zh": "工作区状态"
+      },
+      "description": {
+        "en": "Colored status marks on sidebar workspace rows: waiting for you, running, and recently finished, so the next workspace to open is obvious.",
+        "zh": "在侧边栏工作区行上显示彩色状态：等待你处理、运行中、刚刚完成，一眼看出下一个该打开的工作区。"
+      },
+      "author": "stijnus",
+      "homepage": "https://github.com/Stijnus/dsh-workspace-status",
+      "repository": {
+        "url": "https://github.com/Stijnus/dsh-workspace-status"
+      },
+      "metadata": {
+        "category": "ui-experience",
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "deepseek-harness",
+          "sidebar",
+          "workspace",
+          "status",
+          "indicator"
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1792967515,
+          "source": {
+            "type": "npm",
+            "registry": "https://registry.npmjs.org/"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+          }
+        }
+      ]
     }
   ]
 }
