@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-10-25
+
+### Changed
+
+- Narrowed package keywords to the six core terms. Runtime behaviour is
+  unchanged; this release tests whether npm search indexes the package.
+
 ## [1.2.2] - 2026-10-25
 
 ### Fixed

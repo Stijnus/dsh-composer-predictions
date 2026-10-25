@@ -1,6 +1,6 @@
 {
   "name": "dsh-composer-predictions",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Tab autocomplete for the DeepSeek Harness desktop and web composer: next-message ghost text, inline draft completion and keyboard candidate cycling",
   "type": "module",
   "license": "MIT",
@@ -10,16 +10,10 @@
   "keywords": [
     "dsh",
     "dsh-plugin",
-    "dsh-bundle",
     "deepseek-harness",
     "composer",
     "autocomplete",
-    "tab-completion",
-    "ghost-text",
-    "inline-completion",
-    "prediction",
-    "desktop",
-    "input-completion"
+    "tab-completion"
   ],
   "publishConfig": {
     "access": "public"
