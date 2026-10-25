@@ -111,6 +111,48 @@
           }
         }
       ]
+    },
+    {
+      "name": "dsh-moodboard",
+      "title": {
+        "en": "Moodboard",
+        "zh": "情绪板"
+      },
+      "description": {
+        "en": "Visual reference moodboard: drop in screenshots, tag and annotate them, pin a style guide, and the agent reads those references before it designs UI.",
+        "zh": "视觉参考情绪板：拖入截图、打标签和写备注、固定为风格指南，智能体在设计界面之前会先读取这些参考。"
+      },
+      "author": "stijnus",
+      "homepage": "https://github.com/Stijnus/dsh-moodboard",
+      "repository": {
+        "url": "https://github.com/Stijnus/dsh-moodboard"
+      },
+      "metadata": {
+        "category": "ui-experience",
+        "keywords": [
+          "dsh",
+          "dsh-plugin",
+          "deepseek-harness",
+          "moodboard",
+          "style-guide",
+          "design",
+          "images",
+          "ui"
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.2.7",
+          "publishTimestamp": 1792966092,
+          "source": {
+            "type": "npm",
+            "registry": "https://registry.npmjs.org/"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.3 <0.3.0-0"
+          }
+        }
+      ]
     }
   ]
 }
