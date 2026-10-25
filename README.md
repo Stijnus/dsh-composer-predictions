@@ -7,7 +7,7 @@
 AI autocomplete and ghost-text suggestions for the composer in **DeepSeek
 Harness desktop and the Web GUI**.
 
-**Current release: 1.2.2** · [Install or update](#install) · [中文说明](#中文说明)
+**Current release: [latest on npm](https://www.npmjs.com/package/dsh-composer-predictions)** · [Install or update](#install) · [中文说明](#中文说明)
 
 - **Next message** — after the agent replies, the empty composer shows a
   streamed suggestion for your likely next message. **Tab** accepts it as an
@@ -100,12 +100,12 @@ https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-i
 `Tab` 采纳已完成的候选为可编辑草稿，不会自动发送；`Alt+↓/↑` 切换最多三个候选，
 `Esc` 关闭。设置 → 通用 → 输入预测可开关，设置保存在当前设备的浏览器中。
 
-安装或更新：**插件 → 安装 → `dsh-composer-predictions@1.2.2`**，然后重启 Harness。
-CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions@1.2.2`，
+安装或更新：**插件 → 安装 → `dsh-composer-predictions`**，然后重启 Harness。
+CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions`，
 把 `web` 换成自己的 profile。预测会调用会话模型并消耗 token，虽然不会出现在会话日志和 token 统计中。
 
 也可以把上方 [Install](#install) 中的市场索引添加到「插件 → 发现」。
-演示、完整配置与限制见本页；[1.2.2 发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/tag/v1.2.2)。
+演示、完整配置与限制见本页；[最新发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/latest)。
 
 ## How it works
 

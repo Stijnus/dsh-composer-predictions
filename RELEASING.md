@@ -1,7 +1,9 @@
 # Releasing
 
-Releases are cut by pushing a tag; `.github/workflows/release.yml` tests the
-commit and publishes it to npm with a provenance attestation.
+Releases start by pushing a tag; `.github/workflows/release.yml` tests the
+commit and publishes it to npm with a provenance attestation. This workflow
+does not create the GitHub release or update the Discover index. Complete the
+publication checklist below after npm confirms the version.
 
 Trusted publishing was configured and validated on 2026-10-25 by the successful
 GitHub Actions publication of 1.2.1 with npm provenance. Future new version tags
@@ -35,11 +37,12 @@ npm version patch --no-git-tag-version   # or minor / major
 #   move the [Unreleased] entries in CHANGELOG.md under the new version
 
 # 2. Ship it
+release_version="$(node -p "require('./package.json').version")"
 git add -A
-git commit -m "1.2.2: <summary>"
-git tag -a v1.2.2 -m "1.2.2"
+git commit -m "${release_version}: <summary>"
+git tag -a "v${release_version}" -m "${release_version}"
 git push origin main
-git push origin v1.2.2
+git push origin "v${release_version}"
 ```
 
 The tag push starts the workflow: it checks that the tag matches
@@ -66,11 +69,31 @@ Index URL: https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/ma
 
 ```bash
 npm view dsh-composer-predictions version
-npm view dsh-composer-predictions@1.2.2 dist.attestations
+npm view "dsh-composer-predictions@${release_version}" dist.attestations
 ```
 
 The npm package page also shows a **Provenance** badge linking the published
 tarball to the workflow run.
+
+## Finish publication
+
+1. Wait for the tag's release workflow and npm version verification to succeed.
+2. Download the exact public npm tarball, verify its registry integrity and files
+   against the tag, and attach it to a GitHub release for that existing tag.
+   Describe metadata-only releases as such; do not imply they fix search ranking.
+3. Update the market index version, actual publish timestamp and `engines` from
+   npm metadata. Commit and push the index and confirm the public raw URL.
+4. Keep README installation commands unversioned and release links pointed at
+   `releases/latest`, so they follow the current release without another npm patch.
+5. Update the existing official Discussion and pending directory submission's
+   install references. Preserve historical test-version notes and review status.
+6. Check npm `latest`, the GitHub release asset, the raw Discover index and main CI.
+   External catalog refreshes are not guaranteed to occur at a particular time.
+
+Do not remove published versions or issue keyword-only patches as an assumed
+search fix. A missing result in the first 250 name-search matches is not proof
+of global index absence. Record filtered-search results and contact npm Support
+with those observations if needed. `0.0.0-stage` remains deprecated.
 
 ## Notes
 
