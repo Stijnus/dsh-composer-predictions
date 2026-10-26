@@ -23,7 +23,13 @@ Up to three candidates are requested per call. **Alt+Down / Alt+Up** cycle them,
 and hides the ghost. Streaming text is a preview: `Tab` becomes available when
 the final candidates are ready.
 
+## Demo
+
+The recording below shows draft continuation. To try both modes after installation, follow [Use](#use). Suggestions call your configured model and consume tokens; accepting a suggestion only edits the draft.
+
 ![Typing a draft, the continuation ghost appearing, and Tab accepting it](https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/docs/demo.gif)
+
+[Install and compatibility](#install) · [Usage](#use) · [How it works](#how-it-works) · [Changelog](CHANGELOG.md)
 
 ## Quick start
 
@@ -227,8 +233,8 @@ See [CHANGELOG.md](https://github.com/Stijnus/dsh-composer-predictions/blob/main
 ## Contributing
 
 Issues and pull requests are welcome. If this saves you time in the composer, a
-star helps other DSH users find it — plugin catalogs index repositories by the
-`dsh-plugin` topic, and stars decide which ones get surfaced.
+star is a welcome way to show support. For bug reports, include your Harness
+version, plugin version, and steps to reproduce; omit API keys and private conversation content.
 
 ## License
 
