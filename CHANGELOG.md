@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-10-26
+
+### Changed
+
+- Declare `dsh.catalog` (English/Chinese summary, `ui` category) so plugin
+  markets place the plugin under UI with a real summary instead of guessing.
+
 ## [1.2.5] - 2026-10-25
 
 ### Changed
