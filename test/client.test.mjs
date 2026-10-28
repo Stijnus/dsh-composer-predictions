@@ -69,10 +69,17 @@ test('client half registers the composer overlay slot', async () => {
   assert.equal(localeRegistrations[0].namespace, 'composer-predictions')
   assert.equal(typeof localeRegistrations[0].dictionaries.en.accept, 'string')
 
-  assert.equal(registered.length, 2)
-  assert.equal(registered[1].spec.name, 'conversation.input.overlay')
-  assert.equal(registered[1].spec.id, 'composer-predictions')
-  assert.equal(typeof registered[1].component, 'function')
+  assert.equal(registered.length, 3)
+
+  const overlayRegistration = registered.find((entry) => entry.spec.name === 'conversation.input.overlay')
+  assert.ok(overlayRegistration)
+  assert.equal(overlayRegistration.spec.id, 'composer-predictions')
+  assert.equal(typeof overlayRegistration.component, 'function')
+
+  const starRegistration = registered.find((entry) => entry.spec.name === 'shell.overlay')
+  assert.ok(starRegistration, 'the one-time star prompt registers on the shell overlay')
+  assert.equal(starRegistration.spec.id, 'composer-predictions-star-cta')
+  assert.equal(typeof starRegistration.component, 'function')
 })
 
 
