@@ -56,8 +56,8 @@
       },
       "versions": [
         {
-          "version": "1.2.6",
-          "publishTimestamp": 1793010947,
+          "version": "1.2.7",
+          "publishTimestamp": 1793178674,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
@@ -99,8 +99,8 @@
       },
       "versions": [
         {
-          "version": "0.2.3",
-          "publishTimestamp": 1792967297,
+          "version": "0.2.4",
+          "publishTimestamp": 1793178683,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
@@ -141,8 +141,8 @@
       },
       "versions": [
         {
-          "version": "0.2.9",
-          "publishTimestamp": 1793103552,
+          "version": "0.2.10",
+          "publishTimestamp": 1793178674,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
@@ -182,8 +182,8 @@
       },
       "versions": [
         {
-          "version": "0.1.11",
-          "publishTimestamp": 1792967333,
+          "version": "0.1.12",
+          "publishTimestamp": 1793178871,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
@@ -227,8 +227,8 @@
       },
       "versions": [
         {
-          "version": "0.3.0",
-          "publishTimestamp": 1793015978,
+          "version": "0.3.1",
+          "publishTimestamp": 1793178724,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
