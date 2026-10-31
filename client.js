@@ -142,6 +142,15 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /**
+     * The ghost is painted exactly on top of the composer's placeholder, and its
+     * background is `--dsw-specific-input-major`. A theme is free to make that
+     * token translucent (dream-skin sets it to about 7% alpha), and then the
+     * placeholder bleeds through the suggestion and the two texts weave
+     * together. The host's placeholder gives way instead of the ghost.
+     */
+    const GHOST_CSS = '[data-composer-card]:has([data-composer-prediction]) [data-composer-placeholder]{visibility:hidden !important}'
+
     const NO_GHOST = { mode: 'next', items: [], index: 0, stream: '', active: false }
 
     const NEXT_GHOST_STYLE = {
@@ -835,6 +844,8 @@ window.__ModuleLoader__.load({
           showBadge ? h('span', { style: BADGE_STYLE, title: t('more') }, `${ghost.index + 1}/${ghost.items.length}`) : null,
           showKeycap ? h('kbd', { style: KEYCAP_STYLE, title: t('accept') }, 'Tab') : null,
         ),
+        // Rendered with the ghost and removed with it: no host DOM is touched.
+        h('style', null, GHOST_CSS),
         anchor,
       )
     }

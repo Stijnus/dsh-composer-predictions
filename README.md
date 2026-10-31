@@ -156,6 +156,12 @@ CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions`，
   superseded requests, and renders the ghost over the empty composer or at the
   caret. It measures the resident editor, so the ghost follows its padding,
   line height, and scroll position.
+- While a ghost is on screen the composer's own placeholder is hidden
+  (`[data-composer-card]:has([data-composer-prediction]) [data-composer-placeholder]`).
+  The ghost sits exactly where the placeholder sits and paints with
+  `--dsw-specific-input-major`, which a theme is free to make translucent;
+  without this rule the placeholder shows through the suggestion and the two
+  texts superimpose.
 - Nothing is written to the Session log, and predictions are not counted as
   conversation turns.
 

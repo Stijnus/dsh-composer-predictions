@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The ghost no longer weaves into the composer's placeholder. The overlay paints
+  exactly where the placeholder sits, using `--dsw-specific-input-major` as its
+  background; a theme that makes that token translucent (dream-skin sets it to
+  about 7% alpha) let the placeholder show through the suggestion, so both texts
+  superimposed and neither was readable. The placeholder is now hidden while a
+  ghost is on screen, which also covers the streaming preview. One test added.
+
 ## [1.2.8] - 2026-10-28
 
 ### Changed
