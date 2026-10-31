@@ -118,8 +118,8 @@
         "zh": "情绪板"
       },
       "description": {
-        "en": "Visual reference moodboard: drop in screenshots, tag and annotate them, pin a style guide, and the agent reads those references before it designs UI.",
-        "zh": "视觉参考情绪板：拖入截图、打标签和写备注、固定为风格指南，智能体在设计界面之前会先读取这些参考。"
+        "en": "Visual inspiration intake and style guide for DeepSeek Harness: pull references from links, Mobbin and Are.na, tag and annotate them, pin the style guide, and turn inspiration into your own UI components.",
+        "zh": "DeepSeek Harness 的视觉灵感收录与风格指南：从链接、Mobbin 与 Are.na 收录参考，打标签、写备注，固定风格指南，再把灵感转成自己的界面组件。"
       },
       "author": "stijnus",
       "homepage": "https://github.com/Stijnus/dsh-moodboard",
@@ -136,13 +136,19 @@
           "style-guide",
           "design",
           "images",
-          "ui"
+          "ui",
+          "inspiration",
+          "mobbin",
+          "are.na",
+          "references",
+          "设计参考",
+          "灵感"
         ]
       },
       "versions": [
         {
-          "version": "0.2.11",
-          "publishTimestamp": 1793179905,
+          "version": "0.3.0",
+          "publishTimestamp": 1793442963,
           "source": {
             "type": "npm",
             "registry": "https://registry.npmjs.org/"
