@@ -5,6 +5,7 @@
     - id: composer-predictions
       name: dsh-composer-predictions
       config:
+        delaySeconds: 5
         maxOutputTokens: 220
         timeoutMs: 20000
         maxMessages: 10

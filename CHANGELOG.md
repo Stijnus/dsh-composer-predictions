@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- Move the prediction switch to **Settings → Composer predictions** and add a
+  theme-aware model picker. Follow the conversation model or choose a fixed
+  model for predictions in the active profile.
+- Wait five seconds after typing before requesting a draft continuation. The
+  delay can be set to any whole number from 1 to 60 seconds.
+
 ## [1.2.8] - 2026-10-28
 
 ### Changed

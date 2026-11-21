@@ -6,7 +6,8 @@ import assert from 'node:assert/strict'
  * `apply` against a fake slot/locale context. This catches top-level mistakes
  * (bad imports, wrong slot name, missing registration) without a DOM.
  */
-test('client half registers the composer overlay slot', async () => {
+test('client half registers the composer overlay and settings sidebar section', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ delaySeconds: 5, provider: '', model: '' }))
   let definition
   globalThis.window = {
     addEventListener() {}, removeEventListener() {},
@@ -24,7 +25,9 @@ test('client half registers the composer overlay slot', async () => {
 
   const react = {
     createElement: (type, props, ...children) => ({ type, props, children }),
-    useState: () => [undefined, () => {}],
+    useState: (initial) => [initial, () => {}],
+    useReducer: (_reducer, initial) => [initial, () => {}],
+    useSyncExternalStore: (_subscribe, read) => read(),
     useRef: () => ({ current: undefined }),
     useCallback: (fn) => fn,
     useLayoutEffect: () => {},
@@ -41,6 +44,7 @@ test('client half registers the composer overlay slot', async () => {
   assert.equal(typeof module.__testing, 'object')
 
   const registered = []
+  const injected = []
   const localeRegistrations = []
   const ctx = {
     effect: (fn) => {
@@ -55,7 +59,10 @@ test('client half registers the composer overlay slot', async () => {
       },
     },
     slots: {
-      inject: (name, register) => register(),
+      inject: (name, register) => {
+        injected.push(name)
+        return register()
+      },
       register: (spec, component) => {
         registered.push({ spec, component })
         return () => {}
@@ -70,6 +77,20 @@ test('client half registers the composer overlay slot', async () => {
   assert.equal(typeof localeRegistrations[0].dictionaries.en.accept, 'string')
 
   assert.equal(registered.length, 2)
+  assert.deepEqual(injected.filter(name => name.startsWith('settings.')), ['settings.section'])
+  const sidebar = registered.find(entry => entry.spec.name === 'settings.section')
+  assert.ok(sidebar)
+  assert.equal(sidebar.spec.id, 'composer-predictions')
+  assert.equal(sidebar.spec.order, 51)
+  assert.equal(sidebar.spec.label(), 'composer-predictions:enabled')
+  assert.equal(typeof sidebar.component, 'function')
+
+  const section = sidebar.component()
+  const settingsPage = section.type(section.props)
+  const suiteLink = settingsPage.children.find(child => child?.type === 'a')
+  assert.ok(suiteLink, 'the settings page keeps the suite link')
+  assert.equal(suiteLink.props.href, 'https://github.com/Stijnus?tab=repositories&q=dsh')
+  assert.equal(suiteLink.children.join(''), '★ composer-predictions:starSuite')
 
   const overlayRegistration = registered.find((entry) => entry.spec.name === 'conversation.input.overlay')
   assert.ok(overlayRegistration)

@@ -21,6 +21,13 @@ const ENDPOINT = '/composer-prediction'
 
 /** Streaming endpoint: SSE events `meta`, `delta`, `done`, `error`. */
 const STREAM_ENDPOINT = '/composer-prediction/v2'
+const SETTINGS_ENDPOINT = '/composer-prediction/settings'
+const MODELS_ENDPOINT = '/composer-prediction/models'
+const DEFAULT_DELAY_SECONDS = 5
+
+function validDelay(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 60
+}
 
 /** One request carries a session id, a mode, and a bounded draft. */
 const MAX_BODY_BYTES = 64 * 1024
@@ -78,9 +85,9 @@ const CONTINUE_SYSTEM_PROMPT = [
 ].join('\n')
 
 /**
- * Register both prediction endpoints.
- * @param ctx - context exposing llm, sessions, and the web server.
- * @param config - optional route, token, transcript, and candidate bounds.
+ * Register prediction, settings and model catalog endpoints.
+ * @param ctx - Harness plugin context.
+ * @param config - optional prediction route, typing delay and generation limits.
  */
 export function apply(ctx, config) {
   const options = resolveOptions(config)
@@ -108,6 +115,89 @@ export function apply(ctx, config) {
       handler: (request, response) => serveStream(ctx, options, cache, inflight, request, response),
     }),
   )
+
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: SETTINGS_ENDPOINT,
+    handler: (request, response) => serveSettings(ctx, options, request, response),
+  }))
+
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'exact',
+    path: MODELS_ENDPOINT,
+    handler: (request, response) => serveModels(ctx, request, response),
+  }))
+}
+
+function predictionSettings({ delaySeconds, provider, model }) {
+  return { delaySeconds, provider, model }
+}
+
+async function serveSettings(ctx, options, request, response) {
+  const rejection = ownerRejection(ctx, request)
+  if (rejection) return respond(response, rejection.status, { reason: rejection.error })
+  if (request.method === 'GET') return respond(response, 200, predictionSettings(options))
+  if (request.method !== 'POST') return respond(response, 405, { reason: 'method-not-allowed' })
+  if (!isJsonRequest(request)) return respond(response, 415, { reason: 'unsupported-media-type' })
+
+  const body = await readJsonBody(request).catch(() => null)
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return respond(response, 400, { reason: 'invalid-body' })
+  }
+  const changes = {}
+  if (Object.hasOwn(body, 'delaySeconds')) {
+    if (!validDelay(body.delaySeconds)) return respond(response, 400, { reason: 'invalid-delay' })
+    changes.delaySeconds = body.delaySeconds
+  }
+  if (Object.hasOwn(body, 'provider') || Object.hasOwn(body, 'model')) {
+    const { provider, model } = body
+    const followsSession = provider === '' && model === ''
+    if (!followsSession) {
+      if (!textOption(provider, 200) || !textOption(model, 200)) {
+        return respond(response, 400, { reason: 'invalid-model' })
+      }
+      if (!ctx.llm.listProviders().some((item) => item.id === provider)) {
+        return respond(response, 400, { reason: 'invalid-model' })
+      }
+      const models = await ctx.llm.listModels(provider).catch(() => null)
+      if (models === null) return respond(response, 503, { reason: 'models-unavailable' })
+      if (!models.some((item) => item.id === model)) return respond(response, 400, { reason: 'invalid-model' })
+    }
+    Object.assign(changes, { provider, model })
+  }
+  if (Object.keys(changes).length === 0) return respond(response, 400, { reason: 'invalid-body' })
+
+  const editor = ctx.get('configEditor')
+  const entry = ctx.fiber.entry
+  if (editor === undefined || entry === undefined) {
+    return respond(response, 503, { reason: 'settings-unavailable' })
+  }
+  let saved
+  try {
+    await editor.edit(entry, (current) => {
+      const next = { ...current, ...changes }
+      saved = predictionSettings(resolveOptions(next))
+      return next
+    })
+  } catch {
+    return respond(response, 500, { reason: 'save-failed' })
+  }
+  return respond(response, 200, saved)
+}
+
+async function serveModels(ctx, request, response) {
+  const rejection = ownerRejection(ctx, request)
+  if (rejection) return respond(response, rejection.status, { reason: rejection.error })
+  if (request.method !== 'GET') return respond(response, 405, { reason: 'method-not-allowed' })
+  const catalog = await Promise.allSettled(ctx.llm.listProviders().map(async ({ id, name }) => {
+    const models = await ctx.llm.listModels(id)
+    return { id, name, models: models.map((model) => ({ id: model.id, name: model.name })) }
+  }))
+  if (catalog.length > 0 && catalog.every((item) => item.status === 'rejected')) {
+    return respond(response, 503, { reason: 'models-unavailable' })
+  }
+  const groups = catalog.flatMap((item) => item.status === 'fulfilled' && item.value.models.length ? [item.value] : [])
+  return respond(response, 200, groups)
 }
 
 function resolveOptions(config) {
@@ -125,6 +215,7 @@ function resolveOptions(config) {
     maxChars: option('maxChars', 500, 40_000),
     maxSuggestions: option('maxSuggestions', 1, 5),
     maxToolNotes: option('maxToolNotes', 0, 20),
+    delaySeconds: validDelay(source.delaySeconds) ? source.delaySeconds : DEFAULT_DELAY_SECONDS,
     // A route override is a pair; half a pair is ignored and the Session route wins.
     provider: provider !== '' && model !== '' ? provider : '',
     model: provider !== '' && model !== '' ? model : '',
@@ -207,24 +298,34 @@ function describeError(error) {
   return message.length > 120 ? `${message.slice(0, 120)}…` : message
 }
 
-/**
- * Read and validate one request body, resolving the live Session it names.
- * @returns `null` when the response was already written, a plan, or an error.
- */
-async function planRequest(ctx, request, response) {
+function ownerRejection(ctx, request) {
   const admission = ctx.connection.admit(request)
   if ('rejection' in admission) {
     return { status: admission.rejection, error: admission.rejection === 401 ? 'unauthorized' : 'forbidden' }
   }
   // Predictions read the owner's sessions and spend the owner's model tokens.
   if (admission.peer.principal.kind !== 'owner') return { status: 403, error: 'forbidden' }
+  return null
+}
+
+function isJsonRequest(request) {
+  return request.headers['content-type']?.split(';', 1)[0].trim().toLowerCase() === 'application/json'
+}
+
+/**
+ * Read and validate one request body, resolving the live Session it names.
+ * @returns `null` when the response was already written, a plan, or an error.
+ */
+async function planRequest(ctx, request, response) {
+  const rejection = ownerRejection(ctx, request)
+  if (rejection) return rejection
 
   if (request.method !== 'POST') {
     respond(response, 405, { suggestion: null, suggestions: [], reason: 'method-not-allowed' })
     return null
   }
 
-  if (request.headers['content-type']?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
+  if (!isJsonRequest(request)) {
     return { status: 415, error: 'unsupported-media-type' }
   }
 
@@ -248,9 +349,7 @@ async function planRequest(ctx, request, response) {
   if (mode === 'continue' && draft.trim() === '') return { status: 200, error: 'no-draft' }
 
   const seq = Number(session.seq)
-  const key = JSON.stringify([sessionId, seq, mode, draft])
-
-  return { sessionId, session, mode, draft, seq, key }
+  return { sessionId, session, mode, draft, seq }
 }
 
 /**
@@ -258,7 +357,10 @@ async function planRequest(ctx, request, response) {
  * @returns `{ items, reason }`.
  */
 async function runPrediction(ctx, options, cache, inflight, plan, signals, onDelta) {
-  const remembered = cache.get(plan.key)
+  const route = resolveRoute(ctx, plan.session, options)
+  if (route === undefined) return { items: [], reason: 'no-route' }
+  const key = JSON.stringify([plan.sessionId, plan.seq, plan.mode, plan.draft, route.provider, route.model])
+  const remembered = cache.get(key)
   if (remembered !== undefined) {
     return { items: remembered.items, reason: undefined, cached: true }
   }
@@ -267,9 +369,9 @@ async function runPrediction(ctx, options, cache, inflight, plan, signals, onDel
   const controller = new AbortController()
   inflight.add(controller)
   try {
-    const result = await predict(ctx, options, plan.session, plan.mode, plan.draft, joinSignals([controller.signal, ...signals]), onDelta)
+    const result = await predict(ctx, options, plan.session, plan.mode, plan.draft, route, joinSignals([controller.signal, ...signals]), onDelta)
     if (result.items.length > 0 && !controller.signal.aborted && !signals.some(signal => signal.aborted)) {
-      remember(cache, plan.key, { items: result.items })
+      remember(cache, key, { items: result.items })
     }
     return result
   } finally {
@@ -281,12 +383,9 @@ async function runPrediction(ctx, options, cache, inflight, plan, signals, onDel
  * Run one auxiliary model call over the transcript tail and tool activity.
  * @returns `{ items }` on success or `{ items: [], reason }` when none is usable.
  */
-async function predict(ctx, options, session, mode, draft, signal, onDelta) {
+async function predict(ctx, options, session, mode, draft, route, signal, onDelta) {
   const prompt = buildPrompt(session, options, mode, draft)
   if (prompt === null) return { items: [], reason: 'no-conversation' }
-
-  const route = resolveRoute(ctx, session, options)
-  if (route === undefined) return { items: [], reason: 'no-route' }
 
   const system = (mode === 'continue' ? CONTINUE_SYSTEM_PROMPT : NEXT_SYSTEM_PROMPT).replace(
     '{max}',
