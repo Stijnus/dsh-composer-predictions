@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-11-22
+
 ### Fixed
 
 - A saved prediction model or typing pause takes effect at once, without relying
@@ -210,7 +212,8 @@ first registry version is `1.1.0`.)
 - Requires a Harness build that provides `conversation.input.overlay`,
   `ctx.llm`, and `sessions.deriveMessages()`.
 
-[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.9...HEAD
+[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.10...HEAD
+[1.2.10]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.6...v1.2.7
