@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A saved prediction model or typing pause takes effect at once, without relying
+  on the Harness to reload the plugin after a config edit.
+- Changing the prediction model now asks again for a next-message suggestion in
+  an empty composer, instead of clearing the old one and leaving it blank.
+
+### Changed
+
+- Identical prediction requests that are still running share one model call,
+  so two views of the same session no longer pay for the same suggestion twice.
+  A late request catches up on the text streamed so far; one view leaving does
+  not cancel the others, and the call stops once every view has left.
+
 ## [1.2.9] - 2026-11-22
 
 ### Added

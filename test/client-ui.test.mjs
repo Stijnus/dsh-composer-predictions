@@ -5,15 +5,17 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 
-async function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, delaySeconds = 5, settingsFail = false, predict } = {}) {
+async function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, delaySeconds = 5, settingsFail = false, predict, route = { provider: '', model: '' } } = {}) {
   let definition, registered, request
   let index = 0
+  let refIndex = 0
+  const refs = [], windowListeners = new Map()
   const state = [{ mode: draft === '' ? 'next' : 'continue', items, index: 0, stream, active }, { left: 100, top: 10, maxWidth: 400, height: 24 }, 0]
   const effects = [], layouts = [], listeners = new Map(), inserted = []
   const editor = { contains: () => true, getBoundingClientRect: () => ({ width, height: 100 }) }
   const card = { contains: () => true, querySelector: () => editor, getBoundingClientRect: () => ({ left: 0, top: 0, right: width, width, height: 100 }) }
   const document = { activeElement: editor, hidden: false, querySelector: () => card, createRange: () => ({ selectNodeContents() {}, setEnd() {}, toString: () => draft }), addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener() {} }
-  const window = { __ModuleLoader__: { load: value => { definition = value } }, getSelection: () => ({ rangeCount: 1, getRangeAt: () => ({ collapsed: true, startContainer: {}, startOffset: draft.length, getBoundingClientRect: () => ({ left: caret, top: 10, width: 0, height: 24 }) }) }), getComputedStyle: () => ({ lineHeight: '24px' }), addEventListener() {}, removeEventListener() {} }
+  const window = { __ModuleLoader__: { load: value => { definition = value } }, getSelection: () => ({ rangeCount: 1, getRangeAt: () => ({ collapsed: true, startContainer: {}, startOffset: draft.length, getBoundingClientRect: () => ({ left: caret, top: 10, width: 0, height: 24 }) }) }), getComputedStyle: () => ({ lineHeight: '24px' }), addEventListener: (name, fn) => windowListeners.set(name, fn), removeEventListener() {} }
   const react = { Fragment: 'fragment', createElement: (type, props, ...children) => {
     const element = { type, props, children }
     // React assigns refs before effects; the harness does the same so the
@@ -24,12 +26,12 @@ async function mount({ draft = 'Can you also', active = false, stream = '', item
       element.closest = selector => (selector === '[data-composer-card]' ? card : null)
     }
     return element
-  }, useState: () => { const i = index++; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value }] }, useRef: () => ({ current: null }), useCallback: fn => { request = fn; return fn }, useEffect: fn => effects.push(fn), useLayoutEffect: fn => layouts.push(fn), useSyncExternalStore: (_subscribe, read) => read() }
+  }, useState: (initial) => { const i = index++; if (!(i in state)) state[i] = initial; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value }] }, useRef: () => { const i = refIndex++; return (refs[i] ??= { current: null }) }, useCallback: fn => { request = fn; return fn }, useEffect: fn => effects.push(fn), useLayoutEffect: fn => layouts.push(fn), useSyncExternalStore: (_subscribe, read) => read() }
   const timers = [], requests = []
   const fetch = async (path, options) => {
     requests.push({ path, ...options })
     if (path === '/composer-prediction/settings' && settingsFail) return new Response('', { status: 500 })
-    if (path === '/composer-prediction/settings') return Response.json({ delaySeconds, provider: '', model: '' })
+    if (path === '/composer-prediction/settings') return Response.json({ delaySeconds, ...route })
     if (path === '/composer-prediction/v2' && predict) return predict()
     throw new Error(`Unexpected request to ${path}`)
   }
@@ -44,7 +46,15 @@ async function mount({ draft = 'Can you also', active = false, stream = '', item
   const inputActions = { captureInsertion: () => ({}), insertText: value => { inserted.push(value); return insert }, setDraft: () => { throw new Error('Must never replace the draft') } }
   const wrapper = registered({ sessionId: 's1', useInput: select => select({ draft }), useSessionStatus: select => select(new Map()), inputActions })
   const tree = wrapper.type(wrapper.props)
-  return { state, effects, layouts, listeners, inserted, request, requests, timers, tree }
+  const rerender = () => {
+    index = 0
+    refIndex = 0
+    effects.length = 0
+    layouts.length = 0
+    return wrapper.type(wrapper.props)
+  }
+  const setRoute = (value) => { route = value }
+  return { state, effects, layouts, listeners, windowListeners, inserted, request, requests, timers, tree, rerender, setRoute }
 }
 
 function keyEvent(key, extra = {}) {
@@ -160,4 +170,19 @@ test('a visible ghost hides the host placeholder it is painted over', async () =
     preview.children.some((child) => child !== undefined && child !== null && child.type === 'style'),
     'and it rides the streaming preview too',
   )
+})
+
+test('a changed prediction model re-arms the next-message request, the first settings load does not', async () => {
+  const view = await mount({ draft: '', predict: () => Response.json({ suggestions: [] }) })
+  for (const effect of view.effects) effect()
+  assert.equal(view.state[3], 0, 'loading the saved route is not a change')
+  view.setRoute({ provider: 'alternate', model: 'quick' })
+  view.windowListeners.get('focus')()
+  await new Promise(resolve => setImmediate(resolve))
+  view.rerender()
+  for (const effect of view.effects) effect()
+  assert.equal(view.state[3], 1, 'a real route change bumps the revision the next-message timer depends on')
+  view.rerender()
+  for (const effect of view.effects) effect()
+  assert.equal(view.state[3], 1, 'an unchanged route does not bump it again')
 })

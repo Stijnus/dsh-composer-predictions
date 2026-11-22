@@ -6,7 +6,7 @@ import { apply } from '../index.js'
 const settingsPath = '/composer-prediction/settings'
 const savedModel = { provider: 'alternate', model: 'quick' }
 
-async function launch(t, initial = {}, { owner = true, editorFails = false } = {}) {
+async function launch(t, initial = {}, { owner = true, editorFails = false, reapplies = true } = {}) {
   const routes = new Map()
   const calls = []
   const entry = {}
@@ -20,7 +20,7 @@ async function launch(t, initial = {}, { owner = true, editorFails = false } = {
         assert.equal(target, entry)
         if (editorFails) throw new Error('write failed')
         config = change(config)
-        apply(ctx, config)
+        if (reapplies) apply(ctx, config)
       },
     },
     connection: { admit: () => ({ peer: { principal: { kind: owner ? 'owner' : 'guest' } } }) },
@@ -134,4 +134,18 @@ test('failed save leaves persisted preferences unchanged', async (t) => {
   const { request, readConfig } = await launch(t, { delaySeconds: 8 }, { editorFails: true })
   assert.equal((await request(settingsPath, { delaySeconds: 10 })).status, 500)
   assert.deepEqual(readConfig(), { delaySeconds: 8 })
+})
+
+test('saved settings take effect even when the Harness does not re-apply the plugin', async (t) => {
+  const { request, calls } = await launch(t, { maxOutputTokens: 300 }, { reapplies: false })
+  const changed = { ...savedModel, delaySeconds: 12 }
+  const saved = await request(settingsPath, changed)
+  assert.equal(saved.status, 200)
+  assert.deepEqual(await saved.json(), changed)
+  assert.deepEqual(await (await request(settingsPath)).json(), changed)
+  const prediction = await request('/composer-prediction', { sessionId: 'session', mode: 'continue', draft: 'Please ' })
+  assert.equal(prediction.status, 200)
+  assert.deepEqual(calls.map(({ provider, model, maxTokens }) => ({ provider, model, maxTokens })), [
+    { ...savedModel, maxTokens: 300 },
+  ])
 })
