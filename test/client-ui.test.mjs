@@ -98,3 +98,18 @@ test('final suggestions have an accessible announcement, previews do not', () =>
   const preview = mount({ active: true, items: [], stream: 'preview text' }).tree
   assert.equal(preview.children[0].children[0], '')
 })
+
+test('a visible ghost hides the host placeholder it is painted over', () => {
+  const ready = mount().tree
+  const rule = ready.children.find((child) => child !== undefined && child !== null && child.type === 'style')
+  assert.ok(rule !== undefined, 'the overlay ships the placeholder rule')
+  assert.match(
+    rule.children[0],
+    /\[data-composer-card\]:has\(\[data-composer-prediction\]\) \[data-composer-placeholder\]\{visibility:hidden !important\}/,
+  )
+  const preview = mount({ active: true, items: [], stream: 'preview text' }).tree
+  assert.ok(
+    preview.children.some((child) => child !== undefined && child !== null && child.type === 'style'),
+    'and it rides the streaming preview too',
+  )
+})
