@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-11-22
+
 ### Added
 
 - **Settings → Composer predictions** holds the prediction switch and a
