@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → Composer predictions** holds the prediction switch and a
+  theme-aware model picker. Follow the conversation model or choose a fixed
+  model for predictions in the active profile.
+- The typing pause before a draft continuation is configurable as any whole
+  number from 1 to 60 seconds, saved to the active profile.
+
+### Changed
+
+- The default typing pause before a draft continuation is now 1 second (was
+  500 ms). If the settings cannot be loaded, the default still applies.
+
 ### Fixed
 
 - The ghost no longer weaves into the composer's placeholder. The overlay paints

@@ -60,7 +60,7 @@ for you.
 | Streamed rendering | ✅ SSE (`/v2`) | not documented | ✅ | ✅ |
 | Recent tool calls and outcomes in the prompt | ✅ | — | — | — |
 | Cache | ✅ per turn + per draft | ✅ | ✅ | not documented |
-| Switch off in Settings, no uninstall | ✅ Settings → General | ✅ Settings section | not documented | not documented |
+| Switch off in Settings, no uninstall | ✅ Settings → Composer predictions | ✅ Settings section | not documented | not documented |
 
 "—" means the feature is not mentioned in that package's README as of
 2026-10-25, not that it is impossible. If all you want is an after-turn
@@ -68,9 +68,11 @@ suggestion, `dsh-composer-prediction` is a perfectly good, more established
 choice — this plugin is for people who also want the caret continuation and
 keyboard-only candidate switching.
 
-**Settings → General → Composer predictions** switches both modes on or off.
-The choice is saved in the current browser or desktop window's local storage
-on this device. Other browser origins and devices keep their own preference.
+In Settings, open **Composer predictions** just below **Personalization** to switch
+both modes on or off for this device. Predictions follow the conversation model by default. To use a dedicated
+model, select it from the picker. Draft continuation starts after a one-second
+typing pause by default. Choose a delay from 1 to 60 seconds and click **Save**
+to apply the model and delay to the active Harness profile.
 
 ## Install
 
@@ -119,23 +121,25 @@ https://raw.githubusercontent.com/Stijnus/dsh-composer-predictions/main/market-i
 **DeepSeek Harness 桌面端 / Web 的 Tab 自动补全与输入预测。** 回复结束后，
 空输入框显示下一条消息的灰字建议；输入停顿时，续写光标末尾的草稿。
 `Tab` 采纳已完成的候选为可编辑草稿，不会自动发送；`Alt+↓/↑` 切换最多三个候选，
-`Esc` 关闭。设置 → 通用 → 输入预测可开关，设置保存在当前设备的浏览器中。
+`Esc` 关闭。在「设置 → 输入预测」中可开关预测、选择模型和调整续写延迟。开关保存在当前设备，模型和延迟保存在当前 DSH 配置。
 
 安装或更新：**插件 → 安装 → `dsh-composer-predictions`**，然后重启 Harness。
 CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions`，
-把 `web` 换成自己的 profile。预测会调用会话模型并消耗 token，虽然不会出现在会话日志和 token 统计中。
+把 `web` 换成自己的 profile。预测会调用所选模型并消耗 token，虽然不会出现在会话日志和 token 统计中。
 
 也可以把上方 [Install](#install) 中的市场索引添加到「插件 → 发现」。
 演示、完整配置与限制见本页；[最新发布说明](https://github.com/Stijnus/dsh-composer-predictions/releases/latest)。
 
 ## How it works
 
-- The **Host half** registers two routes on the Harness web server:
+- The **Host half** serves predictions and owner-only preferences on the Harness web server.
   - `POST /composer-prediction` — JSON (`suggestion` plus `suggestions`), kept
     for compatibility with older clients.
   - `POST /composer-prediction/v2` — Server-Sent Events: `meta`, `delta`
     (streamed text), then `done` with the final candidate list.
-- A request carries `{ sessionId, mode, draft }`, where `mode` is `next` or
+  - `GET /composer-prediction/settings` reads the model and delay. `POST` saves them.
+  - `GET /composer-prediction/models` lists available providers and models for the picker.
+- A prediction request carries `{ sessionId, mode, draft }`, where `mode` is `next` or
   `continue`. The Host reads the Session tail (`deriveMessages()`), adds a short
   list of recent tool calls and their outcomes, and renders one bounded prompt.
   `next` declines when the agent has not produced a reply; `continue` includes
@@ -148,11 +152,11 @@ CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions`，
   model restated are trimmed. A continuation keeps the model's leading
   separator space; the Client adds one only when a non-CJK draft and
   continuation would otherwise glue two words together.
-- Completed results are cached per Session sequence (and per draft for
+- Completed results are cached per model route and Session sequence (and per draft for
   continuations), so a repeated request reuses the cached result. Simultaneous
   requests from different views have independent cancellation and may each call the model.
 - The **Client half** registers into `conversation.input.overlay`, debounces
-  requests (600 ms after a turn settles, 500 ms after a typing pause), aborts
+  requests (600 ms after a turn settles, or one second after typing stops by default), aborts
   superseded requests, and renders the ghost over the empty composer or at the
   caret. It measures the resident editor, so the ghost follows its padding,
   line height, and scroll position.
@@ -173,6 +177,7 @@ Override the row in your profile's `cordis.patch.yml`:
 - id: composer-predictions
   name: dsh-composer-predictions
   config:
+    delaySeconds: 1        # 1..60 seconds before continuing a draft
     maxOutputTokens: 220   # 16..4096
     timeoutMs: 20000       # 1000..120000
     maxMessages: 10        # 2..40 messages of transcript
@@ -202,7 +207,8 @@ A suggestion longer than 240 characters is cut at a word boundary.
   never shifts left over your draft.
 - Final suggestions are announced through an accessible status message.
 - Requires a compatible Harness build with `conversation.input.overlay`,
-  `settings.general.item`, `connection.admit()`, `ctx.llm` and `session.deriveMessages()`.
+  `settings.section`, `connection.admit()`, `ctx.llm` and `session.deriveMessages()`.
+  Saving profile preferences uses the Harness config editor.
 
 ## Test
 
@@ -218,7 +224,8 @@ and never commit or include it in logs.
 DSH_URL='http://127.0.0.1:<port>' node tools/live-probe.mjs <sessionId> continue "Can you also"
 ```
 
-The 36 cases drive both Host endpoints against a fake Session and LLM service:
+The tests cover sidebar registration, model and delay preferences, and Host prediction
+requests against a fake Session and LLM service:
 prompt contents (including tool activity), candidate normalization and spacing,
 streaming events, per-turn and per-draft caching, route and effort selection,
 failure reporting, HTTP authentication/owner checks, cancellation and request validation. Client helpers (continuation
@@ -228,7 +235,7 @@ refused insertions, right-edge placement, truncated streams and accessible copy.
 
 ## Uninstall
 
-Switch **Settings → General → Composer predictions** off to pause suggestions.
+Open **Settings → Composer predictions** and turn off the switch to pause suggestions.
 To uninstall, remove the bundle with
 `dsh plugin --profile <name> remove dsh-composer-predictions`.
 

@@ -110,7 +110,7 @@ with those observations if needed. `0.0.0-stage` remains deprecated.
 
 The compatibility range starts at the tested Harness `0.2.1-rc.3` and excludes
 `0.3.0`. Re-test before widening it. The client uses `conversation.input.overlay`,
-`settings.general.item`, the public input actions, and resident composer DOM
+`settings.section`, the public input actions, and resident composer DOM
 (`[data-composer-card]`, contenteditable, caret geometry). Host auth uses the
 required `connection.admit()` service and only accepts owner peers. A Harness
 upgrade can change these contracts even within a preview series.
@@ -118,6 +118,7 @@ upgrade can change these contracts even within a preview series.
 Before tagging, run the tests and install the exact packed tarball in an empty
 profile. In both the desktop app and authenticated web GUI, check next-message
 and inline suggestions, Tab without sending, Alt+Up/Down, Escape, draft/session
-changes, settings off/on and persistence. Verify both HTTP routes return 401 for
+changes, the prediction switch, and persistence of model and delay preferences.
+Verify the prediction, settings and model-list routes return 401 for
 unauthenticated peers and 403 for cross-site requests, with no model calls.
 Keep test drafts unsent and restore existing drafts and preferences afterwards.

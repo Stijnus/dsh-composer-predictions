@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 
-function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, fetch } = {}) {
+async function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, delaySeconds = 5, settingsFail = false, predict } = {}) {
   let definition, registered, request
   let index = 0
   const state = [{ mode: draft === '' ? 'next' : 'continue', items, index: 0, stream, active }, { left: 100, top: 10, maxWidth: 400, height: 24 }, 0]
@@ -25,27 +25,40 @@ function mount({ draft = 'Can you also', active = false, stream = '', items = ['
     }
     return element
   }, useState: () => { const i = index++; return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value }] }, useRef: () => ({ current: null }), useCallback: fn => { request = fn; return fn }, useEffect: fn => effects.push(fn), useLayoutEffect: fn => layouts.push(fn), useSyncExternalStore: (_subscribe, read) => read() }
-  vm.runInNewContext(source, { window, document, fetch, AbortController, TextDecoder, ReadableStream, requestAnimationFrame: () => 1, cancelAnimationFrame() {}, setTimeout: () => 1, clearTimeout() {} })
+  const timers = [], requests = []
+  const fetch = async (path, options) => {
+    requests.push({ path, ...options })
+    if (path === '/composer-prediction/settings' && settingsFail) return new Response('', { status: 500 })
+    if (path === '/composer-prediction/settings') return Response.json({ delaySeconds, provider: '', model: '' })
+    if (path === '/composer-prediction/v2' && predict) return predict()
+    throw new Error(`Unexpected request to ${path}`)
+  }
+  vm.runInNewContext(source, { window, document, fetch, AbortController, TextDecoder, ReadableStream,
+    requestAnimationFrame: () => 1, cancelAnimationFrame() {},
+    setTimeout: (run, delay) => timers.push({ run, delay }), clearTimeout() {},
+  })
   const module = definition.factory(id => id === 'react' ? react : { Switch: 'switch' })
   module.apply({ locale: { bind: () => key => key, register() {} }, effect: fn => fn(), slots: { inject: (_name, fn) => fn(), register: (spec, component) => { if (spec.name === 'conversation.input.overlay') registered = component } } })
+  // Let the plugin's initial GET publish its settings before rendering the overlay.
+  await new Promise(resolve => setImmediate(resolve))
   const inputActions = { captureInsertion: () => ({}), insertText: value => { inserted.push(value); return insert }, setDraft: () => { throw new Error('Must never replace the draft') } }
   const wrapper = registered({ sessionId: 's1', useInput: select => select({ draft }), useSessionStatus: select => select(new Map()), inputActions })
   const tree = wrapper.type(wrapper.props)
-  return { state, effects, layouts, listeners, inserted, request, tree }
+  return { state, effects, layouts, listeners, inserted, request, requests, timers, tree }
 }
 
 function keyEvent(key, extra = {}) {
   return { key, prevented: false, preventDefault() { this.prevented = true }, stopPropagation() {}, ...extra }
 }
 
-test('Tab leaves a streaming preview alone and accepts only final text', () => {
-  const preview = mount({ active: true, items: [], stream: 'Can you also update the README' })
+test('Tab leaves a streaming preview alone and accepts only final text', async () => {
+  const preview = await mount({ active: true, items: [], stream: 'Can you also update the README' })
   for (const effect of preview.effects) effect()
   const early = keyEvent('Tab')
   preview.listeners.get('keydown')(early)
   assert.equal(early.prevented, false)
   assert.deepEqual(preview.inserted, [])
-  const ready = mount()
+  const ready = await mount()
   for (const effect of ready.effects) effect()
   const tab = keyEvent('Tab')
   ready.listeners.get('keydown')(tab)
@@ -53,16 +66,16 @@ test('Tab leaves a streaming preview alone and accepts only final text', () => {
   assert.deepEqual(ready.inserted, [' update the README'])
 })
 
-test('refused insertion never replaces the existing draft', () => {
-  const view = mount({ insert: false })
+test('refused insertion never replaces the existing draft', async () => {
+  const view = await mount({ insert: false })
   for (const effect of view.effects) effect()
   assert.doesNotThrow(() => view.listeners.get('keydown')(keyEvent('Tab')))
   assert.equal(view.state[0].items.length, 0)
   assert.equal(view.state[1], null)
 })
 
-test('ending IME composition re-arms prediction timers even without another draft change', () => {
-  const view = mount()
+test('ending IME composition re-arms prediction timers even without another draft change', async () => {
+  const view = await mount()
   for (const effect of view.effects) effect()
   view.listeners.get('compositionstart')()
   assert.equal(view.state[0].items.length, 0)
@@ -70,44 +83,79 @@ test('ending IME composition re-arms prediction timers even without another draf
   assert.equal(view.state[2], 1)
 })
 
-test('right edge hides the ghost instead of moving it over the draft', () => {
-  const edge = mount({ caret: 590 })
+test('draft continuation falls back to a one-second pause when settings fail to load', async () => {
+  const view = await mount({ settingsFail: true, predict: () => Response.json({ suggestions: [] }) })
+  for (const effect of view.effects) effect()
+  assert.deepEqual(view.timers.map(({ delay }) => delay), [1000])
+  view.timers[0].run()
+  assert.equal(view.requests.at(-1).path, '/composer-prediction/v2')
+})
+
+test('draft continuation waits for the delay returned by the Host', async () => {
+  for (const delaySeconds of [5, 12]) {
+    const view = await mount({ delaySeconds, predict: () => Response.json({ suggestions: [] }) })
+    for (const effect of view.effects) effect()
+    assert.deepEqual(view.requests.map(({ path }) => path), ['/composer-prediction/settings'])
+    assert.equal(view.requests[0].method ?? 'GET', 'GET')
+    assert.deepEqual(view.timers.map(({ delay }) => delay), [delaySeconds * 1000])
+    view.timers[0].run()
+    assert.equal(view.requests.length, 2)
+    assert.equal(view.requests[1].path, '/composer-prediction/v2')
+    assert.equal(view.requests[1].method, 'POST')
+    assert.deepEqual(JSON.parse(view.requests[1].body), { sessionId: 's1', mode: 'continue', draft: 'Can you also' })
+  }
+})
+
+test('an empty composer still requests the next message after 600 ms', async () => {
+  const view = await mount({ draft: '', delaySeconds: 12, predict: () => Response.json({ suggestions: [] }) })
+  for (const effect of view.effects) effect()
+  assert.deepEqual(view.timers.map(({ delay }) => delay), [600])
+  view.timers[0].run()
+  assert.deepEqual(JSON.parse(view.requests[1].body), { sessionId: 's1', mode: 'next', draft: '' })
+})
+
+test('right edge hides the ghost instead of moving it over the draft', async () => {
+  const edge = await mount({ caret: 590 })
   for (const effect of edge.layouts) effect()
   assert.equal(edge.state[1], null)
-  const fits = mount({ caret: 400 })
+  const fits = await mount({ caret: 400 })
   for (const effect of fits.layouts) effect()
   assert.equal(fits.state[1].left, 400)
   assert.equal(fits.state[1].maxWidth, 184)
 })
 
 test('a stream ending without done clears the partial ghost', async () => {
-  const view = mount({ fetch: async () => new Response(new ReadableStream({ start(controller) {
-    controller.enqueue(new TextEncoder().encode('data: {"type":"delta","text":"partial text"}\n\n'))
-    controller.close()
-  } }), { headers: { 'content-type': 'text/event-stream' } }) })
-  await view.request('continue', 'Can you also')
+  let streamController
+  const body = new ReadableStream({ start(controller) { streamController = controller } })
+  const view = await mount({ predict: () => new Response(body, { headers: { 'content-type': 'text/event-stream' } }) })
+  const pending = view.request('continue', 'Can you also')
+  streamController.enqueue(new TextEncoder().encode('data: {"type":"delta","text":"partial text"}\n\n'))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(view.state[0].stream, 'partial text')
+  streamController.close()
+  await pending
   assert.equal(view.state[0].active, false)
   assert.equal(view.state[0].stream, '')
   assert.equal(view.state[0].items.length, 0)
 })
 
-test('final suggestions have an accessible announcement, previews do not', () => {
-  const ready = mount().tree
+test('final suggestions have an accessible announcement, previews do not', async () => {
+  const { tree: ready } = await mount()
   assert.equal(ready.children[0].props.role, 'status')
   assert.equal(ready.children[0].props['aria-live'], 'polite')
-  const preview = mount({ active: true, items: [], stream: 'preview text' }).tree
+  const { tree: preview } = await mount({ active: true, items: [], stream: 'preview text' })
   assert.equal(preview.children[0].children[0], '')
 })
 
-test('a visible ghost hides the host placeholder it is painted over', () => {
-  const ready = mount().tree
+test('a visible ghost hides the host placeholder it is painted over', async () => {
+  const ready = (await mount()).tree
   const rule = ready.children.find((child) => child !== undefined && child !== null && child.type === 'style')
   assert.ok(rule !== undefined, 'the overlay ships the placeholder rule')
   assert.match(
     rule.children[0],
     /\[data-composer-card\]:has\(\[data-composer-prediction\]\) \[data-composer-placeholder\]\{visibility:hidden !important\}/,
   )
-  const preview = mount({ active: true, items: [], stream: 'preview text' }).tree
+  const preview = (await mount({ active: true, items: [], stream: 'preview text' })).tree
   assert.ok(
     preview.children.some((child) => child !== undefined && child !== null && child.type === 'style'),
     'and it rides the streaming preview too',

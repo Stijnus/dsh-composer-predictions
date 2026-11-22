@@ -27,6 +27,29 @@ window.__ModuleLoader__.load({
      * would take the whole plugin down. This reproduces its markup, CSS and
      * behaviour with plugin-owned classes and theme tokens only.
      */
+    const SETTINGS_CSS = [
+      '.cp-setting-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 24px}',
+      '.cp-settings{display:grid;gap:12px;padding:16px 0}',
+      '.cp-setting-note{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}',
+      '.cp-settings :is(select,input,button.cp-save){box-sizing:border-box;min-height:32px;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-fill-l3);color:var(--dsw-alias-label-primary);font:inherit}',
+      '.cp-settings select{width:min(100%,19rem);color-scheme:light}.cp-settings input{width:5rem}',
+      'body[data-ds-dark-theme] .cp-settings select{color-scheme:dark}',
+      // Opt into Chromium's styleable picker so the open menu uses the DSH palette.
+      '@supports (appearance:base-select) and selector(::picker(select)){',
+      '.cp-settings select,.cp-settings select::picker(select){appearance:base-select}',
+      '.cp-settings select::picker(select){box-sizing:border-box;margin-block:4px;padding:4px;max-block-size:min(22rem,55dvh);overflow:auto;border:0;border-radius:8px;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);font:inherit}',
+      '.cp-settings select::picker-icon{color:var(--dsw-alias-menu-icon)}',
+      '.cp-settings optgroup{color:var(--dsw-alias-label-secondary);font-weight:600}',
+      '.cp-settings option{min-block-size:30px;padding:5px 8px;border-radius:6px;color:var(--dsw-alias-label-primary);font-weight:400}',
+      '.cp-settings option:checked{background:var(--dsw-alias-interactive-bg-active)}',
+      '.cp-settings option:is(:hover,:focus-visible){background:var(--dsw-alias-interactive-bg-hover)}',
+      '.cp-settings option::checkmark{color:var(--dsw-alias-brand-primary)}',
+      '}',
+      '@supports not (appearance:base-select){.cp-settings :is(option,optgroup){background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}}',
+      '.cp-settings :is(select,input,button.cp-save):focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
+      '.cp-save:disabled{opacity:.5}.cp-save:not(:disabled){cursor:pointer}',
+    ].join('')
+
     const SWITCH_CSS = [
       '.cp-switch{box-sizing:border-box;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);cursor:pointer}',
       '.cp-switch[aria-checked="true"]{background:var(--dsw-alias-brand-primary)}',
@@ -55,14 +78,16 @@ window.__ModuleLoader__.load({
 
     const NS = 'composer-predictions'
     const ENDPOINT = '/composer-prediction/v2'
+    const SETTINGS_ENDPOINT = '/composer-prediction/settings'
+    const MODELS_ENDPOINT = '/composer-prediction/models'
     const SLOT = 'conversation.input.overlay'
 
     /** Wait for the settled UI before asking, so a fresh turn is fully committed. */
     const SETTLE_MS = 600
-    /** Wait for a typing pause before asking for a continuation. */
-    const TYPE_PAUSE_MS = 500
     /** A continuation needs enough text to continue from. */
     const CONTINUE_MIN_CHARS = 3
+    /** Typing pause before a continuation when the saved settings cannot be loaded. */
+    const DEFAULT_DELAY_SECONDS = 1
     /** The Host bounds the draft too; this keeps the request body small. */
     const MAX_DRAFT_CHARS = 4_000
     /** Ignore the first characters of a streaming answer to avoid flicker. */
@@ -82,9 +107,22 @@ window.__ModuleLoader__.load({
         accept: 'Press Tab to accept this suggestion',
         more: 'Alt+Down for the next suggestion',
         enabled: 'Composer predictions',
-        description: 'Suggest your next message and continue drafts. Uses your model and tokens. Saved in this browser on this device.',
+        description: 'Suggest your next message and continue drafts using model tokens. The switch applies to this device; the model and pause are saved to the active profile.',
         starSuite: 'Star the suite',
         starSuiteTitle: 'Star the Stijnus DSH plugin suite on GitHub',
+        predictionModel: 'Prediction model',
+        followSession: 'Follow the conversation model',
+        unavailableModel: 'Unavailable model',
+        delay: 'Typing pause (seconds)',
+        delayNote: 'Applies to draft continuation. Enter 1–60 seconds.',
+        loading: 'Loading prediction settings…',
+        loadFailed: 'Prediction settings could not be loaded.',
+        modelsFailed: 'Model list could not be loaded.',
+        retry: 'Retry',
+        save: 'Save',
+        saving: 'Saving…',
+        saved: 'Saved',
+        saveFailed: 'Could not save. Check your selection and try again.',
         ready: 'Suggestion: {text}. Press Tab to accept. Alt+Down or Alt+Up changes candidates. Escape dismisses.',
       },
       zh: {
@@ -92,17 +130,29 @@ window.__ModuleLoader__.load({
         accept: '按 Tab 采纳该建议',
         more: '按 Alt+↓ 查看下一条建议',
         enabled: '输入预测',
-        description: '建议下一条消息并续写草稿。会调用模型并消耗 token。设置保存在当前设备的浏览器中。',
+        description: '预测下一条消息和续写草稿会消耗模型用量。开关仅对当前设备生效，模型和停顿时间保存到当前配置。',
         starSuite: '为插件套件点星',
         starSuiteTitle: '在 GitHub 上为 Stijnus 的 DSH 插件套件点星',
+        predictionModel: '预测模型',
+        followSession: '跟随当前会话模型',
+        unavailableModel: '模型当前不可用',
+        delay: '输入停顿（秒）',
+        delayNote: '适用于草稿续写，可设为 1–60 秒。',
+        loading: '正在加载输入预测设置…',
+        loadFailed: '无法加载输入预测设置。',
+        modelsFailed: '无法加载模型列表。',
+        retry: '重试',
+        save: '保存',
+        saving: '正在保存…',
+        saved: '已保存',
+        saveFailed: '保存失败。请检查所选模型和停顿时间后重试。',
         ready: '建议：{text}。按 Tab 采纳，Alt+↓ 或 Alt+↑ 切换，Escape 关闭。',
       },
     }
 
-    /** Quiet, user-initiated suite star link. */
-    const STAR_SUITE_URL = 'https://github.com/Stijnus?tab=repositories&q=dsh'
-
     const PREFERENCE_KEY = 'dsh-composer-predictions.enabled'
+    const SETTINGS_CHANGED_KEY = 'dsh-composer-predictions.settings-changed'
+    const STAR_SUITE_URL = 'https://github.com/Stijnus?tab=repositories&q=dsh'
     let enabled = true
     try {
       enabled = window.localStorage.getItem(PREFERENCE_KEY) !== 'false'
@@ -127,18 +177,136 @@ window.__ModuleLoader__.load({
     function useEnabled() {
       return React.useSyncExternalStore(subscribePreference, readEnabled, readEnabled)
     }
+    let settings = null
+    let settingsRevision = 0
+    let savingSettings = false
+    const readSettings = () => settings
+    const readSaving = () => savingSettings
+    function setSaving(value) {
+      savingSettings = value
+      for (const listener of preferenceListeners) listener()
+    }
+    function publishSettings(value) {
+      settings = value
+      for (const listener of preferenceListeners) listener()
+    }
+    function useSettings() {
+      return React.useSyncExternalStore(subscribePreference, readSettings, readSettings)
+    }
+    async function fetchJson(path, options) {
+      const response = await fetch(path, options)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return await response.json()
+    }
+    async function loadSettings(signal) {
+      if (savingSettings) return
+      const revision = ++settingsRevision
+      try {
+        const value = await fetchJson(SETTINGS_ENDPOINT, { signal })
+        if (!signal?.aborted && revision === settingsRevision) publishSettings(value)
+      } catch {
+        if (!signal?.aborted && revision === settingsRevision && settings === null) publishSettings(false)
+      }
+    }
+    const modelKey = ({ provider, model }) => JSON.stringify([provider, model])
+    const followSessionKey = modelKey({ provider: '', model: '' })
+
     function PredictionsSetting({ t }) {
       const checked = useEnabled()
-      return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '16px 0', borderBottom: '0.5px solid var(--dsw-alias-border-l2)' } },
-        h('style', null, SWITCH_CSS),
-        h('div', null,
-          h('div', { style: { fontSize: 14, lineHeight: '20px' } }, t('enabled')),
-          h('div', { style: { fontSize: 12, lineHeight: '18px', marginTop: 4, color: 'var(--dsw-alias-label-secondary)' } }, t('description')),
-          h('a', { href: STAR_SUITE_URL, target: '_blank', rel: 'noopener noreferrer', title: t('starSuiteTitle'),
-            style: { display: 'inline-block', marginTop: 6, fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-link)', textDecoration: 'none' } },
-            '★ ' + t('starSuite')),
+      const current = useSettings()
+      const [catalog, setCatalog] = React.useState(null)
+      const [catalogAttempt, retryCatalog] = React.useReducer((count) => count + 1, 0)
+      const [selectedModel, setSelectedModel] = React.useState(null)
+      const [delayInput, setDelayInput] = React.useState(null)
+      const [status, setStatus] = React.useState('')
+      const saving = React.useSyncExternalStore(subscribePreference, readSaving, readSaving)
+      React.useEffect(() => {
+        if (settings !== null) void loadSettings()
+      }, [])
+      React.useEffect(() => {
+        const controller = new AbortController()
+        fetchJson(MODELS_ENDPOINT, { signal: controller.signal }).then(
+          (groups) => { if (!controller.signal.aborted) setCatalog(groups) },
+          () => { if (!controller.signal.aborted) setCatalog(false) },
+        )
+        return () => controller.abort()
+      }, [catalogAttempt])
+
+      const showFields = current && typeof current === 'object'
+      const savedModel = showFields ? modelKey(current) : followSessionKey
+      const route = selectedModel ?? savedModel
+      const delay = delayInput ?? String(current?.delaySeconds ?? '')
+      const seconds = Number(delay)
+      const dirty = showFields && (route !== savedModel || seconds !== current.delaySeconds)
+      const validDelay = Number.isInteger(seconds) && seconds >= 1 && seconds <= 60
+      const groups = Array.isArray(catalog) ? catalog : []
+      const savedModelListed = groups.some((group) => group.models.some((model) =>
+        modelKey({ provider: group.id, model: model.id }) === savedModel))
+
+      async function save(event) {
+        event.preventDefault()
+        if (!dirty || savingSettings || !validDelay) return
+        const changes = {}
+        if (seconds !== current.delaySeconds) changes.delaySeconds = seconds
+        if (route !== savedModel) {
+          const [provider, model] = JSON.parse(route)
+          Object.assign(changes, { provider, model })
+        }
+        settingsRevision += 1
+        setSaving(true)
+        setStatus('saving')
+        try {
+          const saved = await fetchJson(SETTINGS_ENDPOINT, {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(changes),
+          })
+          publishSettings(saved)
+          try { window.localStorage.setItem(SETTINGS_CHANGED_KEY, String(Date.now())) } catch { /* Other windows refresh on focus. */ }
+          setSelectedModel(null)
+          setDelayInput(null)
+          setStatus('saved')
+        } catch {
+          setStatus('saveFailed')
+        } finally {
+          setSaving(false)
+        }
+      }
+
+      return h('div', { className: 'cp-settings' },
+        h('style', null, SWITCH_CSS + SETTINGS_CSS),
+        h('div', { className: 'cp-setting-row' },
+          h('div', null, t('enabled'), h('div', { className: 'cp-setting-note' }, t('description'))),
+          h(Switch, { checked, label: t('enabled'), onChange: setEnabled }),
         ),
-        h(Switch, { checked, label: t('enabled'), onChange: setEnabled }),
+        current === null && h('div', { role: 'status' }, t('loading')),
+        current === false && h('div', { className: 'cp-setting-row', role: 'status' }, t('loadFailed'),
+          h('button', { type: 'button', className: 'cp-save', onClick: () => { publishSettings(null); void loadSettings() } }, t('retry'))),
+        showFields && h('form', { onSubmit: save, style: { display: 'grid', gap: 12 } },
+          h('label', { className: 'cp-setting-row' }, t('predictionModel'),
+            h('select', { value: route, disabled: saving || catalog === null, onChange: (event) => { setSelectedModel(event.target.value); setStatus('') } },
+              h('option', { value: followSessionKey }, t('followSession')),
+              savedModel !== followSessionKey && !savedModelListed && h('option', { value: savedModel }, `${t('unavailableModel')} (${current.model})`),
+              groups.map((group) => h('optgroup', { key: group.id, label: group.name },
+                group.models.map((model) => {
+                  const key = modelKey({ provider: group.id, model: model.id })
+                  return h('option', { key, value: key }, `${model.name} (${group.name})`)
+                }))),
+            ),
+          ),
+          catalog === false && h('div', { className: 'cp-setting-row', role: 'status' }, t('modelsFailed'),
+            h('button', { type: 'button', className: 'cp-save', onClick: () => { setCatalog(null); retryCatalog() } }, t('retry'))),
+          h('label', { className: 'cp-setting-row' },
+            h('span', null, t('delay'), h('span', { className: 'cp-setting-note', style: { display: 'block' } }, t('delayNote'))),
+            h('input', { type: 'number', min: 1, max: 60, step: 1, required: true, value: delay, disabled: saving,
+              onChange: (event) => { setDelayInput(event.target.value); setStatus('') } }),
+          ),
+          h('div', { className: 'cp-setting-row' },
+            h('div', { role: 'status', className: 'cp-setting-note' }, status && t(status)),
+            h('button', { type: 'submit', className: 'cp-save', disabled: !dirty || !validDelay || saving }, t('save')),
+          ),
+        ),
+        h('a', { href: STAR_SUITE_URL, target: '_blank', rel: 'noopener noreferrer', title: t('starSuiteTitle'),
+          style: { justifySelf: 'start', fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-link)', textDecoration: 'none' } },
+          '★ ' + t('starSuite')),
       )
     }
 
@@ -417,6 +585,11 @@ window.__ModuleLoader__.load({
     function ComposerPrediction(props) {
       const { sessionId, useInput, useSessionStatus, inputActions, t } = props
       const predictionsEnabled = useEnabled()
+      const settings = useSettings()
+      // Settings that failed to load fall back to the default pause rather than disabling continuation.
+      const delaySeconds = settings === false ? DEFAULT_DELAY_SECONDS : settings?.delaySeconds
+      const provider = settings?.provider
+      const model = settings?.model
       const draft = useInput((state) => (state === undefined ? '' : state.draft || ''))
       const running = useSessionStatus((state) => (state === undefined ? false : state.get(sessionId)?.running === true))
       const [ghost, setGhost] = React.useState(NO_GHOST)
@@ -549,6 +722,18 @@ window.__ModuleLoader__.load({
         return () => abortRef.current?.abort()
       }, [sessionId])
 
+      const priorRoute = React.useRef(null)
+      React.useEffect(() => {
+        if (provider === undefined || model === undefined) return
+        const nextRoute = modelKey({ provider, model })
+        if (priorRoute.current !== null && priorRoute.current !== nextRoute) {
+          abortRef.current?.abort()
+          setGhost(NO_GHOST)
+          dismissedRef.current = null
+        }
+        priorRoute.current = nextRoute
+      }, [provider, model])
+
       // Typing invalidates what was predicted for the previous text.
       React.useEffect(() => {
         abortRef.current?.abort()
@@ -581,7 +766,7 @@ window.__ModuleLoader__.load({
       // `continue`: ask after a pause, only with the caret at the draft's end.
       React.useEffect(() => {
         if (sessionId === undefined || sessionId === null) return undefined
-        if (!predictionsEnabled || draft.trim() === '' || draft.length < CONTINUE_MIN_CHARS) return undefined
+        if (!predictionsEnabled || delaySeconds === undefined || draft.trim() === '' || draft.length < CONTINUE_MIN_CHARS) return undefined
         if (isTriggerToken(draft)) return undefined
         if (dismissedRef.current !== null && dismissedRef.current.draft === draft) return undefined
         const timer = setTimeout(() => {
@@ -590,9 +775,9 @@ window.__ModuleLoader__.load({
           if (found === null) return
           if (caretAtEnd(found.editor, draft) === null) return
           void request('continue', draft.slice(-MAX_DRAFT_CHARS))
-        }, TYPE_PAUSE_MS)
+        }, delaySeconds * 1000)
         return () => clearTimeout(timer)
-      }, [sessionId, draft, request, predictionsEnabled, compositionEnd])
+      }, [sessionId, draft, request, predictionsEnabled, compositionEnd, delaySeconds, provider, model])
 
       // A prediction skipped while the page was hidden is retried on return.
       React.useEffect(() => {
@@ -858,16 +1043,25 @@ window.__ModuleLoader__.load({
         const t = ctx.locale.bind(NS)
         ctx.effect(() => ctx.locale.register(NS, DICTIONARIES))
         ctx.effect(() => {
+          const controller = new AbortController()
+          const refresh = () => void loadSettings(controller.signal)
           const onStorage = (event) => {
+            if (event.key === SETTINGS_CHANGED_KEY || event.key === null) refresh()
             if (event.key !== PREFERENCE_KEY && event.key !== null) return
             enabled = event.newValue !== 'false'
             for (const listener of preferenceListeners) listener()
           }
+          refresh()
           window.addEventListener('storage', onStorage)
-          return () => window.removeEventListener('storage', onStorage)
+          window.addEventListener('focus', refresh)
+          return () => {
+            controller.abort()
+            window.removeEventListener('storage', onStorage)
+            window.removeEventListener('focus', refresh)
+          }
         })
-        ctx.slots.inject('settings.general.item', () => ctx.slots.register(
-          { name: 'settings.general.item', id: 'composer-predictions', order: 50, label: () => t('enabled') },
+        ctx.slots.inject('settings.section', () => ctx.slots.register(
+          { name: 'settings.section', id: 'composer-predictions', order: 51, label: () => t('enabled') },
           () => h(PredictionsSetting, { t }),
         ))
         ctx.slots.inject(SLOT, () =>
