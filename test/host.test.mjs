@@ -499,7 +499,7 @@ test('continuations with colliding former draft hashes never reuse another draft
   assert.equal(harness.llmCalls.length, 2)
 })
 
-test('simultaneous requests do not cancel each other and plugin disposal aborts outstanding work', async () => {
+test('identical simultaneous requests share one model call and plugin disposal aborts it', async () => {
   const signals = []
   let release
   const gate = new Promise(resolve => { release = resolve })
@@ -512,15 +512,64 @@ test('simultaneous requests do not cancel each other and plugin disposal aborts 
   const first = callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
   const second = callRoute(harness.routes.get(STREAM_ENTRY), { sessionId: 's1' })
   await new Promise(resolve => setImmediate(resolve))
-  assert.equal(signals.length, 2)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(signals.length, 1)
   assert.equal(signals[0].aborted, false)
-  assert.equal(signals[1].aborted, false)
   harness.dispose()
-  assert.ok(signals.every(signal => signal.aborted))
+  assert.equal(signals[0].aborted, true)
   release()
   const [json, stream] = await Promise.all([first, second])
   assert.deepEqual(JSON.parse(json.chunks.join('')).suggestions, [])
   assert.equal(sseEvents(stream).at(-1).type, 'error')
+})
+
+test('one caller leaving a shared call does not cancel the others', async () => {
+  let signal, release
+  const gate = new Promise(resolve => { release = resolve })
+  const harness = makeHarness({ reply: async function* (request) {
+    signal = request.signal
+    yield { type: 'text-delta', text: 'Run the ' }
+    await gate
+    yield { type: 'text-delta', text: 'failing test again' }
+  } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const leaving = makeResponse()
+  harness.routes.get(STREAM_ENTRY).handler(makeRequest({ sessionId: 's1' }), leaving)
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  const staying = callRoute(harness.routes.get(STREAM_ENTRY), { sessionId: 's1' })
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  leaving.destroyed = true
+  leaving.emit('close')
+  assert.equal(signal.aborted, false)
+  release()
+  const events = sseEvents(await staying)
+  assert.equal(harness.llmCalls.length, 1)
+  // The late joiner caught up on the text streamed before it arrived.
+  assert.equal(events.filter(e => e.type === 'delta').map(e => e.text).join(''), 'Run the failing test again')
+  assert.deepEqual(events.at(-1), { type: 'done', items: ['Run the failing test again'], cached: false })
+})
+
+test('the last caller leaving cancels the shared call and a new request starts afresh', async () => {
+  let signal
+  const harness = makeHarness({ reply: async function* (request) {
+    signal = request.signal
+    yield { type: 'text-delta', text: 'partial' }
+    await new Promise(() => {})
+  } })
+  harness.sessions.set('s1', makeSession(CONVERSATION))
+  const response = makeResponse()
+  harness.routes.get(STREAM_ENTRY).handler(makeRequest({ sessionId: 's1' }), response)
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  response.destroyed = true
+  response.emit('close')
+  assert.equal(signal.aborted, true)
+  harness.setReply('A fresh completed suggestion')
+  const next = await callRoute(harness.routes.get(JSON_ENTRY), { sessionId: 's1' })
+  assert.deepEqual(JSON.parse(next.chunks.join('')).suggestions, ['A fresh completed suggestion'])
+  assert.equal(harness.llmCalls.length, 2)
 })
 
 test('disconnect cancels only that request and never caches its partial output', async () => {

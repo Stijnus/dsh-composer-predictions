@@ -92,10 +92,11 @@ const CONTINUE_SYSTEM_PROMPT = [
 export function apply(ctx, config) {
   const options = resolveOptions(config)
   const cache = new Map()
-  const inflight = new Set()
+  /** Identical requests still running share one model call: key -> shared call. */
+  const inflight = new Map()
 
   ctx.effect(() => () => {
-    for (const controller of inflight) controller.abort()
+    for (const shared of inflight.values()) shared.controller.abort()
     inflight.clear()
     cache.clear()
   })
@@ -172,17 +173,19 @@ async function serveSettings(ctx, options, request, response) {
   if (editor === undefined || entry === undefined) {
     return respond(response, 503, { reason: 'settings-unavailable' })
   }
-  let saved
+  let written
   try {
     await editor.edit(entry, (current) => {
-      const next = { ...current, ...changes }
-      saved = predictionSettings(resolveOptions(next))
-      return next
+      written = { ...current, ...changes }
+      return written
     })
   } catch {
     return respond(response, 500, { reason: 'save-failed' })
   }
-  return respond(response, 200, saved)
+  // Apply the saved values now. A Harness that re-applies the plugin on a config
+  // edit starts fresh anyway; one that does not must not keep the old route.
+  Object.assign(options, resolveOptions(written))
+  return respond(response, 200, predictionSettings(options))
 }
 
 async function serveModels(ctx, request, response) {
@@ -365,18 +368,60 @@ async function runPrediction(ctx, options, cache, inflight, plan, signals, onDel
     return { items: remembered.items, reason: undefined, cached: true }
   }
 
-  // Each view owns its cancellation; an identical request must not cancel it.
-  const controller = new AbortController()
-  inflight.add(controller)
-  try {
-    const result = await predict(ctx, options, plan.session, plan.mode, plan.draft, route, joinSignals([controller.signal, ...signals]), onDelta)
-    if (result.items.length > 0 && !controller.signal.aborted && !signals.some(signal => signal.aborted)) {
-      remember(cache, key, { items: result.items })
-    }
-    return result
-  } finally {
-    inflight.delete(controller)
+  // Identical requests share one model call. Each caller owns its own
+  // cancellation: leaving drops only that caller, and the shared call is
+  // aborted once nobody is left waiting for it.
+  let shared = inflight.get(key)
+  // A call everyone left is already cancelled; a new request starts afresh.
+  if (shared !== undefined && shared.controller.signal.aborted) shared = undefined
+  if (shared === undefined) {
+    const controller = new AbortController()
+    const created = { controller, listeners: new Set(), text: '', callers: 0 }
+    created.promise = predict(ctx, options, plan.session, plan.mode, plan.draft, route, controller.signal, (text) => {
+      created.text += text
+      for (const listener of created.listeners) listener(text)
+    }).then((result) => {
+      if (result.items.length > 0 && !controller.signal.aborted) remember(cache, key, { items: result.items })
+      return result
+    }).finally(() => {
+      if (inflight.get(key) === created) inflight.delete(key)
+    })
+    // Every caller may leave before it settles; its outcome is then unobserved.
+    created.promise.catch(() => {})
+    inflight.set(key, created)
+    shared = created
+  } else if (onDelta !== undefined && shared.text !== '') {
+    // A late joiner first catches up on what has streamed so far.
+    onDelta(shared.text)
   }
+  return await joinShared(shared, joinSignals(signals), onDelta)
+}
+
+/** Wait for a shared call on behalf of one caller until it settles or that caller leaves. */
+function joinShared(shared, signal, onDelta) {
+  shared.callers += 1
+  if (onDelta !== undefined) shared.listeners.add(onDelta)
+  return new Promise((resolve, reject) => {
+    let left = false
+    const leave = () => {
+      if (left) return
+      left = true
+      signal.removeEventListener('abort', onAbort)
+      if (onDelta !== undefined) shared.listeners.delete(onDelta)
+      shared.callers -= 1
+    }
+    const onAbort = () => {
+      leave()
+      if (shared.callers === 0) shared.controller.abort()
+      reject(signal.reason ?? new Error('aborted'))
+    }
+    if (signal.aborted) return onAbort()
+    signal.addEventListener('abort', onAbort, { once: true })
+    shared.promise.then(
+      (result) => { leave(); resolve(result) },
+      (error) => { leave(); reject(error) },
+    )
+  })
 }
 
 /**

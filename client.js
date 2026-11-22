@@ -723,6 +723,9 @@ window.__ModuleLoader__.load({
       }, [sessionId])
 
       const priorRoute = React.useRef(null)
+      // Bumped only when a loaded route really changes, so the first settings
+      // load does not restart a prediction that is already on its way.
+      const [routeRevision, setRouteRevision] = React.useState(0)
       React.useEffect(() => {
         if (provider === undefined || model === undefined) return
         const nextRoute = modelKey({ provider, model })
@@ -730,6 +733,7 @@ window.__ModuleLoader__.load({
           abortRef.current?.abort()
           setGhost(NO_GHOST)
           dismissedRef.current = null
+          setRouteRevision((value) => value + 1)
         }
         priorRoute.current = nextRoute
       }, [provider, model])
@@ -761,7 +765,7 @@ window.__ModuleLoader__.load({
           void request('next', '')
         }, SETTLE_MS)
         return () => clearTimeout(timer)
-      }, [sessionId, running, draft, request, predictionsEnabled, compositionEnd])
+      }, [sessionId, running, draft, request, predictionsEnabled, compositionEnd, routeRevision])
 
       // `continue`: ask after a pause, only with the caret at the draft's end.
       React.useEffect(() => {
