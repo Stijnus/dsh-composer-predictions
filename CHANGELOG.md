@@ -196,7 +196,17 @@ first registry version is `1.1.0`.)
 - Requires a Harness build that provides `conversation.input.overlay`,
   `ctx.llm`, and `sessions.deriveMessages()`.
 
-[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.9...HEAD
+[1.2.9]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.8...v1.2.9
+[1.2.8]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.7...v1.2.8
+[1.2.7]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.6...v1.2.7
+[1.2.6]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.5...v1.2.6
+[1.2.5]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.4...v1.2.5
+[1.2.4]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.3...v1.2.4
+[1.2.3]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/Stijnus/dsh-composer-predictions/compare/v1.1.0...v1.1.1
