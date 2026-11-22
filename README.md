@@ -70,7 +70,7 @@ keyboard-only candidate switching.
 
 In Settings, open **Composer predictions** just below **Personalization** to switch
 both modes on or off for this device. Predictions follow the conversation model by default. To use a dedicated
-model, select it from the picker. Draft continuation starts after a five-second
+model, select it from the picker. Draft continuation starts after a one-second
 typing pause by default. Choose a delay from 1 to 60 seconds and click **Save**
 to apply the model and delay to the active Harness profile.
 
@@ -156,10 +156,16 @@ CLI 用户可运行 `dsh plugin --profile web add dsh-composer-predictions`，
   continuations), so a repeated request reuses the cached result. Simultaneous
   requests from different views have independent cancellation and may each call the model.
 - The **Client half** registers into `conversation.input.overlay`, debounces
-  requests (600 ms after a turn settles, or five seconds after typing stops by default), aborts
+  requests (600 ms after a turn settles, or one second after typing stops by default), aborts
   superseded requests, and renders the ghost over the empty composer or at the
   caret. It measures the resident editor, so the ghost follows its padding,
   line height, and scroll position.
+- While a ghost is on screen the composer's own placeholder is hidden
+  (`[data-composer-card]:has([data-composer-prediction]) [data-composer-placeholder]`).
+  The ghost sits exactly where the placeholder sits and paints with
+  `--dsw-specific-input-major`, which a theme is free to make translucent;
+  without this rule the placeholder shows through the suggestion and the two
+  texts superimpose.
 - Nothing is written to the Session log, and predictions are not counted as
   conversation turns.
 
@@ -171,7 +177,7 @@ Override the row in your profile's `cordis.patch.yml`:
 - id: composer-predictions
   name: dsh-composer-predictions
   config:
-    delaySeconds: 5        # 1..60 seconds before continuing a draft
+    delaySeconds: 1        # 1..60 seconds before continuing a draft
     maxOutputTokens: 220   # 16..4096
     timeoutMs: 20000       # 1000..120000
     maxMessages: 10        # 2..40 messages of transcript

@@ -86,6 +86,8 @@ window.__ModuleLoader__.load({
     const SETTLE_MS = 600
     /** A continuation needs enough text to continue from. */
     const CONTINUE_MIN_CHARS = 3
+    /** Typing pause before a continuation when the saved settings cannot be loaded. */
+    const DEFAULT_DELAY_SECONDS = 1
     /** The Host bounds the draft too; this keeps the request body small. */
     const MAX_DRAFT_CHARS = 4_000
     /** Ignore the first characters of a streaming answer to avoid flicker. */
@@ -105,7 +107,7 @@ window.__ModuleLoader__.load({
         accept: 'Press Tab to accept this suggestion',
         more: 'Alt+Down for the next suggestion',
         enabled: 'Composer predictions',
-        description: 'Suggest your next message and continue drafts using model tokens.',
+        description: 'Suggest your next message and continue drafts using model tokens. The switch applies to this device; the model and pause are saved to the active profile.',
         starSuite: 'Star the suite',
         starSuiteTitle: 'Star the Stijnus DSH plugin suite on GitHub',
         predictionModel: 'Prediction model',
@@ -128,7 +130,7 @@ window.__ModuleLoader__.load({
         accept: '按 Tab 采纳该建议',
         more: '按 Alt+↓ 查看下一条建议',
         enabled: '输入预测',
-        description: '预测下一条消息和续写草稿会消耗模型用量。',
+        description: '预测下一条消息和续写草稿会消耗模型用量。开关仅对当前设备生效，模型和停顿时间保存到当前配置。',
         starSuite: '为插件套件点星',
         starSuiteTitle: '在 GitHub 上为 Stijnus 的 DSH 插件套件点星',
         predictionModel: '预测模型',
@@ -236,13 +238,14 @@ window.__ModuleLoader__.load({
       const delay = delayInput ?? String(current?.delaySeconds ?? '')
       const seconds = Number(delay)
       const dirty = showFields && (route !== savedModel || seconds !== current.delaySeconds)
+      const validDelay = Number.isInteger(seconds) && seconds >= 1 && seconds <= 60
       const groups = Array.isArray(catalog) ? catalog : []
       const savedModelListed = groups.some((group) => group.models.some((model) =>
         modelKey({ provider: group.id, model: model.id }) === savedModel))
 
       async function save(event) {
         event.preventDefault()
-        if (!dirty || savingSettings || !Number.isInteger(seconds) || seconds < 1 || seconds > 60) return
+        if (!dirty || savingSettings || !validDelay) return
         const changes = {}
         if (seconds !== current.delaySeconds) changes.delaySeconds = seconds
         if (route !== savedModel) {
@@ -298,7 +301,7 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'cp-setting-row' },
             h('div', { role: 'status', className: 'cp-setting-note' }, status && t(status)),
-            h('button', { type: 'submit', className: 'cp-save', disabled: !dirty || saving }, t('save')),
+            h('button', { type: 'submit', className: 'cp-save', disabled: !dirty || !validDelay || saving }, t('save')),
           ),
         ),
         h('a', { href: STAR_SUITE_URL, target: '_blank', rel: 'noopener noreferrer', title: t('starSuiteTitle'),
@@ -306,6 +309,15 @@ window.__ModuleLoader__.load({
           '★ ' + t('starSuite')),
       )
     }
+
+    /**
+     * The ghost is painted exactly on top of the composer's placeholder, and its
+     * background is `--dsw-specific-input-major`. A theme is free to make that
+     * token translucent (dream-skin sets it to about 7% alpha), and then the
+     * placeholder bleeds through the suggestion and the two texts weave
+     * together. The host's placeholder gives way instead of the ghost.
+     */
+    const GHOST_CSS = '[data-composer-card]:has([data-composer-prediction]) [data-composer-placeholder]{visibility:hidden !important}'
 
     const NO_GHOST = { mode: 'next', items: [], index: 0, stream: '', active: false }
 
@@ -574,7 +586,8 @@ window.__ModuleLoader__.load({
       const { sessionId, useInput, useSessionStatus, inputActions, t } = props
       const predictionsEnabled = useEnabled()
       const settings = useSettings()
-      const delaySeconds = settings?.delaySeconds
+      // Settings that failed to load fall back to the default pause rather than disabling continuation.
+      const delaySeconds = settings === false ? DEFAULT_DELAY_SECONDS : settings?.delaySeconds
       const provider = settings?.provider
       const model = settings?.model
       const draft = useInput((state) => (state === undefined ? '' : state.draft || ''))
@@ -1016,6 +1029,8 @@ window.__ModuleLoader__.load({
           showBadge ? h('span', { style: BADGE_STYLE, title: t('more') }, `${ghost.index + 1}/${ghost.items.length}`) : null,
           showKeycap ? h('kbd', { style: KEYCAP_STYLE, title: t('accept') }, 'Tab') : null,
         ),
+        // Rendered with the ghost and removed with it: no host DOM is touched.
+        h('style', null, GHOST_CSS),
         anchor,
       )
     }

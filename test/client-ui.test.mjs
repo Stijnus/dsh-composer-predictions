@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 
-async function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, delaySeconds = 5, predict } = {}) {
+async function mount({ draft = 'Can you also', active = false, stream = '', items = [' update the README'], caret = 100, width = 600, insert = true, delaySeconds = 5, settingsFail = false, predict } = {}) {
   let definition, registered, request
   let index = 0
   const state = [{ mode: draft === '' ? 'next' : 'continue', items, index: 0, stream, active }, { left: 100, top: 10, maxWidth: 400, height: 24 }, 0]
@@ -28,6 +28,7 @@ async function mount({ draft = 'Can you also', active = false, stream = '', item
   const timers = [], requests = []
   const fetch = async (path, options) => {
     requests.push({ path, ...options })
+    if (path === '/composer-prediction/settings' && settingsFail) return new Response('', { status: 500 })
     if (path === '/composer-prediction/settings') return Response.json({ delaySeconds, provider: '', model: '' })
     if (path === '/composer-prediction/v2' && predict) return predict()
     throw new Error(`Unexpected request to ${path}`)
@@ -80,6 +81,14 @@ test('ending IME composition re-arms prediction timers even without another draf
   assert.equal(view.state[0].items.length, 0)
   view.listeners.get('compositionend')()
   assert.equal(view.state[2], 1)
+})
+
+test('draft continuation falls back to a one-second pause when settings fail to load', async () => {
+  const view = await mount({ settingsFail: true, predict: () => Response.json({ suggestions: [] }) })
+  for (const effect of view.effects) effect()
+  assert.deepEqual(view.timers.map(({ delay }) => delay), [1000])
+  view.timers[0].run()
+  assert.equal(view.requests.at(-1).path, '/composer-prediction/v2')
 })
 
 test('draft continuation waits for the delay returned by the Host', async () => {
@@ -136,4 +145,19 @@ test('final suggestions have an accessible announcement, previews do not', async
   assert.equal(ready.children[0].props['aria-live'], 'polite')
   const { tree: preview } = await mount({ active: true, items: [], stream: 'preview text' })
   assert.equal(preview.children[0].children[0], '')
+})
+
+test('a visible ghost hides the host placeholder it is painted over', async () => {
+  const ready = (await mount()).tree
+  const rule = ready.children.find((child) => child !== undefined && child !== null && child.type === 'style')
+  assert.ok(rule !== undefined, 'the overlay ships the placeholder rule')
+  assert.match(
+    rule.children[0],
+    /\[data-composer-card\]:has\(\[data-composer-prediction\]\) \[data-composer-placeholder\]\{visibility:hidden !important\}/,
+  )
+  const preview = (await mount({ active: true, items: [], stream: 'preview text' })).tree
+  assert.ok(
+    preview.children.some((child) => child !== undefined && child !== null && child.type === 'style'),
+    'and it rides the streaming preview too',
+  )
 })

@@ -6,11 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- Move the prediction switch to **Settings → Composer predictions** and add a
+### Added
+
+- **Settings → Composer predictions** holds the prediction switch and a
   theme-aware model picker. Follow the conversation model or choose a fixed
   model for predictions in the active profile.
-- Wait five seconds after typing before requesting a draft continuation. The
-  delay can be set to any whole number from 1 to 60 seconds.
+- The typing pause before a draft continuation is configurable as any whole
+  number from 1 to 60 seconds, saved to the active profile.
+
+### Changed
+
+- The default typing pause before a draft continuation is now 1 second (was
+  500 ms). If the settings cannot be loaded, the default still applies.
+
+### Fixed
+
+- The ghost no longer weaves into the composer's placeholder. The overlay paints
+  exactly where the placeholder sits, using `--dsw-specific-input-major` as its
+  background; a theme that makes that token translucent (dream-skin sets it to
+  about 7% alpha) let the placeholder show through the suggestion, so both texts
+  superimposed and neither was readable. The placeholder is now hidden while a
+  ghost is on screen, which also covers the streaming preview. One test added.
 
 ## [1.2.8] - 2026-10-28
 

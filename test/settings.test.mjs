@@ -62,11 +62,11 @@ async function launch(t, initial = {}, { owner = true, editorFails = false } = {
   return { request, calls, readConfig: () => config, setSessionRoute: (route) => { sessionRoute = route } }
 }
 
-test('reads a five-second default and lists available model groups without exposing extra metadata', async (t) => {
+test('reads a one-second default and lists available model groups without exposing extra metadata', async (t) => {
   const { request } = await launch(t)
   const preferences = await request(settingsPath)
   assert.equal(preferences.status, 200)
-  assert.deepEqual(await preferences.json(), { delaySeconds: 5, provider: '', model: '' })
+  assert.deepEqual(await preferences.json(), { delaySeconds: 1, provider: '', model: '' })
   const models = await request('/composer-prediction/models')
   assert.equal(models.status, 200)
   assert.deepEqual(await models.json(), [{ id: 'alternate', name: 'Alternate', models: [{ id: 'quick', name: 'Quick' }] }])

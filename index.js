@@ -23,7 +23,7 @@ const ENDPOINT = '/composer-prediction'
 const STREAM_ENDPOINT = '/composer-prediction/v2'
 const SETTINGS_ENDPOINT = '/composer-prediction/settings'
 const MODELS_ENDPOINT = '/composer-prediction/models'
-const DEFAULT_DELAY_SECONDS = 5
+const DEFAULT_DELAY_SECONDS = 1
 
 function validDelay(value) {
   return Number.isInteger(value) && value >= 1 && value <= 60
